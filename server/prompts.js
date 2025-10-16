@@ -44,7 +44,15 @@ Requirements:
 - Include accessibility considerations and modern web standards
 - Focus on actionable, implementable instructions for website generation
 
-CRITICAL: Output ONLY the prompt text itself. Do NOT include any preamble, introduction, meta-commentary, or phrases like "Here is..." or "Based on...". Start directly with the prompt content.`;
+ABSOLUTELY CRITICAL OUTPUT RULES:
+- Output ONLY the prompt text itself
+- Do NOT include ANY preamble, introduction, meta-commentary, or explanatory text
+- Do NOT use phrases like "Here is...", "Based on...", "Of course...", "I'll create...", "Let me...", or similar
+- Do NOT include code fences (\`\`\`) around the output
+- Do NOT add any text before or after the actual prompt
+- Start immediately with the prompt content (e.g., "Create a website for...")
+- End immediately after the prompt content
+- The output should be the raw prompt text that can be directly used in Lovable`;
 
 export const PLAN_QUESTIONS_TEMPLATE = (baseConcept, details) => `
 The user gave the idea: "${baseConcept}".
@@ -86,4 +94,3 @@ Hard requirements:
 - Prioritize concrete design steps first in this order when missing: palette → layout → font; then include tone/main_character/purpose only as needed to reach 3–6 total distinct steps.
 - Ensure all questions are about different attributes; never ask two questions for the same attribute.
 - Labels should be short and friendly; no emojis for layout/tone/font.`;
-

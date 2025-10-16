@@ -2,6 +2,199 @@ import { mountOverlay } from '../overlay';
 
 console.log('LovaBridge content script loaded');
 
+const LBA_PENDING_KEY = 'lb_pending_prompt';
+const SEND_BUTTON_ID = 'chatinput-send-message-button';
+
+const isLovableHost = (): boolean => {
+  const host = location.hostname || '';
+  return /(^|\.)lovable\.(dev|so|site)$/i.test(host);
+};
+
+const isElementVisible = (el: Element): boolean => {
+  const node = el as HTMLElement;
+  if (!node) return false;
+  const rect = node.getBoundingClientRect();
+  const style = window.getComputedStyle(node);
+  return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+};
+
+const findLovableHomePromptInput = (): HTMLElement | null => {
+  const selectors = [
+    'form#chat-input textarea#chatinput',
+    'textarea#chatinput',
+    'form#chat-input textarea',
+    'form[id="chat-input"] textarea',
+    'textarea[placeholder*="Ask Lovable" i]',
+    'textarea[aria-label*="Lovable" i]',
+  ];
+  for (const sel of selectors) {
+    const candidates = Array.from(document.querySelectorAll<HTMLElement>(sel)).filter(isElementVisible);
+    if (candidates.length) return candidates[0];
+  }
+  return null;
+};
+
+const sanitizePrompt = (raw: string): string => {
+  let t = (raw || '').trim();
+  t = t.replace(/^```[a-zA-Z0-9_-]*\s*\n?/, '');
+  t = t.replace(/\n?```\s*$/, '');
+  return t.trim();
+};
+
+const setFormElementValue = (el: HTMLInputElement | HTMLTextAreaElement, text: string) => {
+  const prototype = Object.getPrototypeOf(el);
+  const desc = Object.getOwnPropertyDescriptor(prototype, 'value');
+  if (desc && typeof desc.set === 'function') {
+    desc.set.call(el, text);
+  } else {
+    (el as any).value = text;
+  }
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+};
+
+const setContentEditableText = (el: HTMLElement, text: string) => {
+  el.focus();
+  el.textContent = text;
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'Unidentified' }));
+};
+
+const pressEnterOn = (el: HTMLElement) => {
+  el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', which: 13, keyCode: 13, bubbles: true }));
+  el.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', which: 13, keyCode: 13, bubbles: true }));
+  el.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', which: 13, keyCode: 13, bubbles: true }));
+};
+
+const scheduleEnter = (el: HTMLElement) => {
+  try {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        pressEnterOn(el);
+      });
+    });
+  } catch {
+    setTimeout(() => pressEnterOn(el), 30);
+  }
+};
+
+const scheduleClickSend = (el: HTMLElement, withinMs: number = 2000) => {
+  const start = Date.now();
+  const tryClick = () => {
+    const btn = document.getElementById(SEND_BUTTON_ID) as HTMLButtonElement | null;
+    if (btn && !btn.disabled) {
+      btn.click();
+      return;
+    }
+    if (Date.now() - start < withinMs) {
+      requestAnimationFrame(tryClick);
+    } else {
+      scheduleEnter(el);
+    }
+  };
+  tryClick();
+};
+
+const findLovableHomeForm = (): HTMLFormElement | null => {
+  const form = document.querySelector('form#chat-input') as HTMLFormElement | null;
+  if (form) return form;
+  return null;
+};
+
+const scheduleRequestSubmit = (targetEl: HTMLElement) => {
+  const submitNow = () => {
+    const form = (targetEl.closest('form') as HTMLFormElement | null) || findLovableHomeForm();
+    if (form) {
+      try {
+        if (typeof (form as any).requestSubmit === 'function') {
+          (form as any).requestSubmit();
+          return;
+        }
+      } catch {}
+      try {
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        return;
+      } catch {}
+    }
+    scheduleClickSend(targetEl);
+  };
+  try {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(submitNow);
+    });
+  } catch {
+    setTimeout(submitNow, 30);
+  }
+};
+
+
+const pastePromptToLovableHome = (prompt: string, autoSend: boolean = true): boolean => {
+  if (!isLovableHost()) return false;
+  const target = findLovableHomePromptInput();
+  if (!target) return false;
+  target.scrollIntoView({ block: 'center' });
+  try { (target as HTMLElement).focus(); } catch {}
+  const clean = sanitizePrompt(prompt);
+  if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) {
+    setFormElementValue(target, clean);
+    if (autoSend) {
+      scheduleRequestSubmit(target);
+    }
+    return true;
+  }
+  if ((target as HTMLElement).getAttribute('contenteditable') === 'true') {
+    setContentEditableText(target as HTMLElement, clean);
+    if (autoSend) {
+      scheduleRequestSubmit(target as HTMLElement);
+    }
+    return true;
+  }
+  return false;
+};
+
+const tryConsumePendingPrompt = () => {
+  if (!isLovableHost()) return;
+  try {
+    chrome.storage.local.get([LBA_PENDING_KEY], (result) => {
+      const pending = result?.[LBA_PENDING_KEY];
+      if (typeof pending === 'string' && pending.trim()) {
+        const ok = pastePromptToLovableHome(pending);
+        if (ok) {
+          chrome.storage.local.remove([LBA_PENDING_KEY], () => {});
+        }
+      }
+    });
+  } catch {}
+};
+
+window.addEventListener('lb:pastePrompt' as any, (e: Event) => {
+  try {
+    const ce = e as CustomEvent & { detail?: any };
+    const prompt = ce?.detail?.prompt as string | undefined;
+    if (typeof prompt === 'string' && prompt.trim()) {
+      const ok = pastePromptToLovableHome(prompt);
+      if (!ok) {
+        try { chrome.storage.local.set({ [LBA_PENDING_KEY]: prompt }, () => {}); } catch {}
+      }
+    }
+  } catch {}
+});
+
+try {
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if (Object.prototype.hasOwnProperty.call(changes, LBA_PENDING_KEY)) {
+      const next = changes[LBA_PENDING_KEY]?.newValue as string | undefined;
+      if (typeof next === 'string' && next.trim()) {
+        const ok = pastePromptToLovableHome(next);
+        if (ok) {
+          try { chrome.storage.local.remove([LBA_PENDING_KEY], () => {}); } catch {}
+        }
+      }
+    }
+  });
+} catch {}
+
 const injectOverlayStyles = () => {
   let style = document.getElementById('lb-overlay-style') as HTMLStyleElement | null;
   if (!style) { style = document.createElement('style'); style.id = 'lb-overlay-style'; }
@@ -314,4 +507,11 @@ if (document.readyState === 'loading') {
   injectOverlayStyles();
 }
 
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', tryConsumePendingPrompt);
+} else {
+  tryConsumePendingPrompt();
+}
+
 export {};
+

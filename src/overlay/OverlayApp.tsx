@@ -13,6 +13,13 @@ type OverlayAppProps = {
   onHeaderReady?: (el: HTMLElement | null) => void;
 };
 
+const sanitizePrompt = (raw: string): string => {
+  let t = (raw || '').trim();
+  t = t.replace(/^```[a-zA-Z0-9_-]*\s*\n?/, '');
+  t = t.replace(/\n?```\s*$/, '');
+  return t.trim();
+};
+
 const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
   const headerRef = useRef<HTMLDivElement | null>(null);
   const [mode, setMode] = useState<'draw' | 'text'>('draw');
@@ -74,6 +81,17 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
   };
 
   useEffect(() => { onHeaderReady?.(headerRef.current); }, [onHeaderReady]);
+
+  useEffect(() => {
+    if (!showFinal) return;
+    const toSend = sanitizePrompt(finalOut || '');
+    if (!toSend.trim()) return;
+    try {
+      const evt = new CustomEvent('lb:pastePrompt', { detail: { prompt: toSend } });
+      window.dispatchEvent(evt);
+      chrome?.storage?.local?.set?.({ lb_pending_prompt: toSend }, () => {});
+    } catch {}
+  }, [showFinal, finalOut]);
 
   return (
     <div className={`relative min-h-full h-full w-full bg-white text-slate-700 ${a11y.largeText ? 'lb-large-text' : ''} ${a11y.highContrast ? 'lb-high-contrast' : ''} ${a11y.reduceMotion ? 'lb-reduce-motion' : ''} ${a11y.boldText ? 'font-bold' : ''}`} style={{ position: 'absolute', inset: 0 }}>
@@ -246,12 +264,11 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
         )}
         {showFinal && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setShowFinal(false)}>
-            <div className="bg-white rounded-2xl p-6 border border-slate-200 max-w-xl w-[90%]" onClick={(e) => e.stopPropagation()}>
-              <h3 className="text-xl font-bold text-slate-800 mb-3">All set! Here’s your Lovable prompt:</h3>
-              <pre className="whitespace-pre-wrap text-slate-700 bg-slate-50 p-3 rounded border border-slate-200 max-h-72 overflow-auto">{finalOut}</pre>
-              <div className="text-right mt-4">
-                <button className="bg-sky-500 hover:bg-sky-600 text-white px-4 py-2 rounded-xl mr-2" onClick={() => navigator.clipboard.writeText(finalOut)}>Copy</button>
-                <button className="bg-slate-300 hover:bg-slate-400 text-slate-800 px-4 py-2 rounded-xl" onClick={() => { setShowFinal(false); setQ(null); setTextIdea(''); setCtx({}); setPlan(null); setStepIdx(0); setInputLocked(false); }}>Start over</button>
+            <div className="bg-white rounded-2xl p-6 border border-slate-200 max-w-md w-[90%] text-center" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-xl font-bold text-slate-800 mb-1">Your website is being built!</h3>
+              <p className="text-slate-600">Let’s see it in action!!</p>
+              <div className="text-center mt-4">
+                <button className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl" onClick={() => setShowFinal(false)}>OK</button>
               </div>
             </div>
           </div>
