@@ -2,6 +2,16 @@ import React from 'react';
 
 const App: React.FC = () => {
   const [notOnLovable, setNotOnLovable] = React.useState<boolean>(false);
+
+  React.useEffect(() => {
+    try {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const url = tabs[0]?.url || '';
+        const isLovable = /^https?:\/\/(?:[^\/]*\.)?lovable\.dev\//i.test(url);
+        setNotOnLovable(!isLovable);
+      });
+    } catch {}
+  }, []);
   const openOverlayOnPage = () => {
     try {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -27,7 +37,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white text-slate-700">
+    <div className="min-h-screen bg-white text-slate-700 rounded-xl">
       <header className="bg-slate-50 p-3 text-center border-b border-slate-200 rounded-t-xl">
         <h1 className="text-2xl font-bold mb-1 text-sky-600">LovaBridge Buddy</h1>
         <p className="text-sm text-slate-600">Launcher</p>
