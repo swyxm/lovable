@@ -37,7 +37,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white text-slate-700 rounded-xl">
+    <div className="min-h-screen bg-white text-slate-700 rounded-xl" style={{ width: 300, height: 160 }}>
       <header className="bg-slate-50 p-3 text-center border-b border-slate-200 rounded-t-xl">
         <h1 className="text-2xl font-bold mb-1 text-sky-600">LovaBridge Buddy</h1>
         <p className="text-sm text-slate-600">Launcher</p>
@@ -56,7 +56,7 @@ const App: React.FC = () => {
         ) : (
           <div className="flex justify-center">
             <button className="bg-sky-500 hover:bg-sky-600 text-white px-4 py-2 rounded-xl" onClick={openOverlayOnPage}>
-              Open overlay on page
+              Launch LovaBuddy
             </button>
           </div>
         )}
