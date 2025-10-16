@@ -10,7 +10,10 @@ interface Props {
 export default function LayoutCard({ label, value, selected, onSelect }: Props) {
   const schematic = getSchematic(value);
   return (
-    <button className={`rounded-xl border p-3 text-left transition bg-white ${selected ? 'ring-2 ring-sky-400 border-sky-300' : 'border-slate-200'}`} onClick={() => onSelect(value)}>
+    <button className={`relative rounded-xl border p-3 text-left transition ${selected ? 'bg-sky-100 ring-2 ring-sky-300 border-sky-300' : 'bg-white border-slate-200'}`} onClick={() => onSelect(value)}>
+      {selected && (
+        <span className="absolute top-1.5 right-1.5 inline-flex items-center justify-center w-6 h-6 rounded-full bg-sky-400 text-white">✓</span>
+      )}
       <div className="flex items-center gap-3">
         <div className="w-14 h-10 border rounded bg-white grid gap-0.5 p-0.5">
           {schematic}

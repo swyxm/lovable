@@ -6,6 +6,7 @@ export function mountOverlay(shadowRoot: ShadowRoot, onClose: () => void, onHead
   const mount = document.createElement('div');
   mount.style.width = '100%';
   mount.style.height = '100%';
+  mount.setAttribute('tabindex', '-1');
   shadowRoot.appendChild(mount);
   const root = createRoot(mount);
   root.render(

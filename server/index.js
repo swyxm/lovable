@@ -11,6 +11,7 @@ const PORT = process.env.PORT || 8787;
 const LLM_API_KEY = process.env.LLM_API_KEY;
 const LLM_BASE = process.env.LLM_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta';
 const LLM_MODEL = process.env.LLM_MODEL || 'gemini-2.5-flash';
+const LLM_FINAL_MODEL = process.env.LLM_FINAL_MODEL || 'gemini-2.5-pro';
 
 function llmUrl(path){
   const sep = path.startsWith('/') ? '' : '/';
@@ -179,7 +180,7 @@ app.post('/conversation/final', async (req, res) => {
   const details = JSON.stringify(context, null, 2);
   try {
     const prompt = FINAL_PROMPT_TEMPLATE(details);
-    const data = await callLLM(`/models/${LLM_MODEL}:generateContent`, {
+    const data = await callLLM(`/models/${LLM_FINAL_MODEL}:generateContent`, {
       contents: [{ parts: [{ text: prompt }] }]
     });
     const out = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';

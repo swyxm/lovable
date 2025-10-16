@@ -26,7 +26,10 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
   const [finalOut, setFinalOut] = useState<string>('');
   const [plan, setPlan] = useState<LlmPlan | null>(null);
   const [stepIdx, setStepIdx] = useState<number>(0);
-  
+
+  const [inputLocked, setInputLocked] = useState<boolean>(false);
+  const [selection, setSelection] = useState<{ field: keyof PromptContext | null; value: string | null; label: string | null }>({ field: null, value: null, label: null });
+
 
   const startPlan = async (nextCtx: PromptContext) => {
     setLoading(true);
@@ -107,64 +110,138 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
         ) : (
           <div className="rounded-xl border border-slate-200 p-5 bg-slate-50">
             <div className="flex gap-2">
-              <input className="flex-1 bg-white text-slate-700 border-2 border-slate-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400" placeholder="Describe your idea..." value={textIdea} onChange={(e) => setTextIdea(e.target.value)} />
-              <button className="bg-sky-500 hover:bg-sky-600 text-white px-4 py-2 rounded-xl" onClick={async () => {
-                const nextCtx = { ...ctx, base_idea: textIdea };
-                setCtx(nextCtx);
-                await startPlan(nextCtx);
-              }}>Send</button>
+              <input
+                className={`flex-1 border-2 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 ${inputLocked ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-white text-slate-700 border-slate-300'}`}
+                placeholder="Describe your idea..."
+                value={textIdea}
+                disabled={inputLocked}
+                data-lb-primary-focus
+                onChange={(e) => setTextIdea(e.target.value)}
+                onKeyDown={async (e) => {
+                  if (e.key === 'Enter' && !loading && !inputLocked && textIdea.trim()) {
+                    const nextCtx = { ...ctx, base_idea: textIdea };
+                    setCtx(nextCtx);
+                    setInputLocked(true);
+                    await startPlan(nextCtx);
+                  }
+                }}
+              />
+              <button
+                className={`px-4 py-2 rounded-xl ${inputLocked || !textIdea.trim() ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-sky-500 hover:bg-sky-600 text-white'}`}
+                disabled={inputLocked || !textIdea.trim()}
+                onClick={async () => {
+                  if (inputLocked || !textIdea.trim()) return;
+                  const nextCtx = { ...ctx, base_idea: textIdea };
+                  setCtx(nextCtx);
+                  setInputLocked(true);
+                  await startPlan(nextCtx);
+                }}
+              >Send</button>
             </div>
-            {loading && <LoadingSpinner />}
             {error && <p className="mt-2 text-red-600">{error}</p>}
-            {q ? (
-              <div className="mt-4">
-                <p className="mb-3 text-slate-700 font-medium">{q.question}</p>
-                <div className={`grid ${q.expected_field === 'font' ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3'} gap-3`}>
-                  {q.choices?.map((c) => {
-                    if (c.type === 'color') {
-                      return (
-                        <ColorCard key={c.value} label={c.label} hex={c.value} onSelect={async (val) => {
-                          const field = q.expected_field as keyof PromptContext;
+            <div className="mt-4">
+              <div className="rounded-xl bg-slate-100 border border-slate-200 p-3 h-72 overflow-y-auto">
+                {plan && (
+                  <div className="mb-3 text-center">
+                    <div className="text-sm text-slate-600 font-medium">{Math.min(stepIdx + 1, plan.steps.length)}/{plan.steps.length}</div>
+                    <div className="mt-1 flex items-center justify-center gap-1">
+                      {plan.steps.map((_, i) => (
+                        <span key={i} className={`w-2 h-2 rounded-full ${i === stepIdx ? 'bg-sky-500' : 'bg-slate-300'}`} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {loading && <LoadingSpinner />}
+                {!loading && q && (
+                  <div>
+                    <p className="mb-3 text-slate-700 font-medium">{q.question}</p>
+                    <div className={`grid ${q.expected_field === 'font' ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3'} gap-3`}>
+                      {q.choices?.map((c) => {
+                        if (c.type === 'color') {
+                          const isSelected = selection.value === c.value && selection.field === (q.expected_field as keyof PromptContext);
+                          return (
+                            <ColorCard
+                              key={c.value}
+                              label={c.label}
+                              hex={c.value}
+                              selected={isSelected}
+                              onSelect={(val) => {
+                                const field = q.expected_field as keyof PromptContext;
+                                setSelection({ field, value: val, label: c.label });
+                              }}
+                            />
+                          );
+                        }
+                        if (c.type === 'layout') {
+                          const isSelected = selection.value === c.value && selection.field === (q.expected_field as keyof PromptContext);
+                          return (
+                            <LayoutCard
+                              key={c.value}
+                              label={c.label}
+                              value={c.value}
+                              selected={isSelected}
+                              onSelect={(val) => {
+                                const field = q.expected_field as keyof PromptContext;
+                                setSelection({ field, value: val, label: c.label });
+                              }}
+                            />
+                          );
+                        }
+                        if (q.expected_field === 'font') {
+                          const isSelected = selection.value === c.value && selection.field === (q.expected_field as keyof PromptContext);
+                          return (
+                            <FontCard
+                              key={c.value}
+                              label={c.label}
+                              value={c.value}
+                              selected={isSelected}
+                              onSelect={(val) => {
+                                const field = q.expected_field as keyof PromptContext;
+                                setSelection({ field, value: val, label: c.label });
+                              }}
+                            />
+                          );
+                        }
+                        const isSelected = selection.value === c.value && selection.field === (q.expected_field as keyof PromptContext);
+                        return (
+                          <OptionCard
+                            key={c.value}
+                            label={c.label}
+                            emoji={c.emoji as any}
+                            value={c.value}
+                            context={q.expected_field}
+                            selected={isSelected}
+                            onSelect={(val) => {
+                              const field = q.expected_field as keyof PromptContext;
+                              setSelection({ field, value: val, label: c.label });
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                    <div className="mt-4 flex justify-end">
+                      <button
+                        className={`px-4 py-2 rounded-xl ${!selection.value ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-sky-500 hover:bg-sky-600 text-white'}`}
+                        disabled={!selection.value}
+                        onClick={async () => {
+                          if (!selection.value || !selection.field) return;
+                          const field = selection.field as keyof PromptContext;
                           let nextCtx: PromptContext;
                           if (field === 'palette') {
-                            const arr = val.split(',').map(s => s.trim()).filter(Boolean);
+                            const arr = (selection.value || '').split(',').map(s => s.trim()).filter(Boolean);
                             nextCtx = { ...ctx, palette: arr } as PromptContext;
                           } else {
-                            nextCtx = { ...ctx, [field]: val } as PromptContext;
+                            nextCtx = { ...ctx, [field]: selection.value } as PromptContext;
                           }
-                          await advanceWithSelection(nextCtx, field, c.label);
-                        }} />
-                      );
-                    }
-                    if (c.type === 'layout') {
-                      return (
-                        <LayoutCard key={c.value} label={c.label} value={c.value} onSelect={async (val) => {
-                          const field = q.expected_field as keyof PromptContext;
-                          const nextCtx = { ...ctx, [field]: val } as PromptContext;
-                          await advanceWithSelection(nextCtx, field, c.label);
-                        }} />
-                      );
-                    }
-                    if (q.expected_field === 'font') {
-                      return (
-                        <FontCard key={c.value} label={c.label} value={c.value} onSelect={async (val) => {
-                          const field = q.expected_field as keyof PromptContext;
-                          const nextCtx = { ...ctx, [field]: val } as PromptContext;
-                          await advanceWithSelection(nextCtx, field, c.label);
-                        }} />
-                      );
-                    }
-                    return (
-                      <OptionCard key={c.value} label={c.label} emoji={c.emoji as any} value={c.value} context={q.expected_field} onSelect={async (val) => {
-                        const field = q.expected_field as keyof PromptContext;
-                        const nextCtx = { ...ctx, [field]: val } as PromptContext;
-                        await advanceWithSelection(nextCtx, field, c.label);
-                      }} />
-                    );
-                  })}
-                </div>
+                          await advanceWithSelection(nextCtx, field, selection.label || '');
+                          setSelection({ field: null, value: null, label: null });
+                        }}
+                      >Next</button>
+                    </div>
+                  </div>
+                )}
               </div>
-            ) : (loading ? <LoadingSpinner /> : null)}
+            </div>
           </div>
         )}
         {showFinal && (
@@ -174,7 +251,7 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
               <pre className="whitespace-pre-wrap text-slate-700 bg-slate-50 p-3 rounded border border-slate-200 max-h-72 overflow-auto">{finalOut}</pre>
               <div className="text-right mt-4">
                 <button className="bg-sky-500 hover:bg-sky-600 text-white px-4 py-2 rounded-xl mr-2" onClick={() => navigator.clipboard.writeText(finalOut)}>Copy</button>
-                <button className="bg-slate-300 hover:bg-slate-400 text-slate-800 px-4 py-2 rounded-xl" onClick={() => { setShowFinal(false); setQ(null); setTextIdea(''); setCtx({}); setPlan(null); setStepIdx(0); }}>Start over</button>
+                <button className="bg-slate-300 hover:bg-slate-400 text-slate-800 px-4 py-2 rounded-xl" onClick={() => { setShowFinal(false); setQ(null); setTextIdea(''); setCtx({}); setPlan(null); setStepIdx(0); setInputLocked(false); }}>Start over</button>
               </div>
             </div>
           </div>
