@@ -20,45 +20,25 @@ const injectOverlayStyles = () => {
       backdrop-filter: none !important;
       -webkit-backdrop-filter: none !important;
     }
-    
-    .lovabridge-overlay.active {
-      opacity: 1;
-      background: rgba(2, 6, 23, 0.35); /* dim background */
-      backdrop-filter: blur(2px);
-      -webkit-backdrop-filter: blur(2px);
-      pointer-events: auto;
-    }
-    
+    .lovabridge-overlay.active { opacity: 1; pointer-events: auto; }
+
     .lovabridge-container {
       position: fixed;
       background: white;
       border-radius: 20px;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      overflow: hidden;
+      overflow: visible;
       min-width: 480px;
       min-height: 360px;
       pointer-events: auto;
       contain: layout paint;
+      resize: none !important;
     }
     .lovabridge-container:focus { outline: none; }
     .lovabridge-container::-webkit-scrollbar { width: 10px; }
     .lovabridge-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; border: 2px solid transparent; background-clip: content-box; }
-
-    .lb-resize-handle { position: absolute; z-index: 2147483647; background: transparent; pointer-events: auto; opacity: 0; }
-    .lb-rh-n, .lb-rh-s { left: 0; right: 0; height: 6px; }
-    .lb-rh-e, .lb-rh-w { top: 0; bottom: 0; width: 6px; }
-    .lb-rh-n { top: -3px; cursor: ns-resize; }
-    .lb-rh-s { bottom: -3px; cursor: ns-resize; }
-    .lb-rh-e { right: -3px; cursor: ew-resize; }
-    .lb-rh-w { left: -3px; cursor: ew-resize; }
-    .lb-rh-ne, .lb-rh-nw, .lb-rh-se, .lb-rh-sw { width: 10px; height: 10px; }
-    .lb-rh-ne { top: -3px; right: -3px; cursor: nesw-resize; position: absolute; }
-    .lb-rh-nw { top: -3px; left: -3px; cursor: nwse-resize; position: absolute; }
-    .lb-rh-se { bottom: -3px; right: -3px; cursor: nwse-resize; position: absolute; }
-    .lb-rh-sw { bottom: -3px; left: -3px; cursor: nesw-resize; position: absolute; }
-
-    .lovabridge-container::-webkit-scrollbar-corner { background: transparent; }
-    .lovabridge-container::-webkit-resizer { background: transparent; }
+    .lovabridge-container::-webkit-scrollbar-corner { background: transparent !important; }
+    .lovabridge-container::-webkit-resizer { background: transparent !important; }
   `;
   if (!style.parentElement) document.head.appendChild(style);
 };
@@ -92,30 +72,65 @@ const enableDrag = (el: HTMLElement, handle?: HTMLElement) => {
   });
 };
 
-const enableResize = (container: HTMLElement) => {
+const enableResize = (container: HTMLElement, root: ShadowRoot) => {
+  const style = document.createElement('style');
+  style.textContent = `
+    .lb-resize-handle { position: absolute; z-index: 2147483647; background: transparent; pointer-events: auto; opacity: 0; }
+    .lb-rh-n, .lb-rh-s { left: 0; right: 0; height: 10px; }
+    .lb-rh-e, .lb-rh-w { top: 0; bottom: 0; width: 10px; }
+    .lb-rh-n { top: 0; cursor: ns-resize; }
+    .lb-rh-s { bottom: 0; cursor: ns-resize; }
+    .lb-rh-e { right: 0; cursor: ew-resize; }
+    .lb-rh-w { left: 0; cursor: ew-resize; }
+    .lb-rh-ne, .lb-rh-nw, .lb-rh-se, .lb-rh-sw { width: 14px; height: 14px; position: absolute; }
+    .lb-rh-ne { top: 0; right: 0; cursor: nesw-resize; }
+    .lb-rh-nw { top: 0; left: 0; cursor: nwse-resize; }
+    .lb-rh-se { bottom: 0; right: 0; cursor: nwse-resize; }
+    .lb-rh-sw { bottom: 0; left: 0; cursor: nesw-resize; }
+  `;
+  root.appendChild(style);
   const docRect = () => document.documentElement.getBoundingClientRect();
   const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
   const start = (dir: string, e: MouseEvent) => {
     e.preventDefault();
+    document.body.style.userSelect = 'none';
     const startX = e.clientX; const startY = e.clientY;
     const rect = container.getBoundingClientRect();
     const startW = rect.width; const startH = rect.height; const startL = rect.left; const startT = rect.top;
     const onMove = (ev: MouseEvent) => {
       const dx = ev.clientX - startX; const dy = ev.clientY - startY; const d = docRect();
       let w = startW, h = startH, l = startL, t = startT;
-      const minW = 480, minH = 360;
+      const minW = Math.max(480, parseFloat(getComputedStyle(container).minWidth) || 0);
+      const minH = Math.max(360, parseFloat(getComputedStyle(container).minHeight) || 0);
       if (dir.includes('e')) w = clamp(startW + dx, minW, d.width - startL);
       if (dir.includes('s')) h = clamp(startH + dy, minH, d.height - startT);
-      if (dir.includes('w')) { const nextW = clamp(startW - dx, minW, startW + startL); l = clamp(startL + (startW - nextW), 0, startL + startW - minW); w = nextW; }
-      if (dir.includes('n')) { const nextH = clamp(startH - dy, minH, startH + startT); t = clamp(startT + (startH - nextH), 0, startT + startH - minH); h = nextH; }
+      if (dir.includes('w')) { const nextW = clamp(startW - dx, minW, startW + startL); l = clamp(startL + (startW - nextW), 0, d.width - nextW); w = nextW; }
+      if (dir.includes('n')) { const nextH = clamp(startH - dy, minH, startH + startT); t = clamp(startT + (startH - nextH), 0, d.height - nextH); h = nextH; }
+      l = clamp(l, 0, d.width - w);
+      t = clamp(t, 0, d.height - h);
       container.style.width = `${w}px`; container.style.height = `${h}px`; container.style.left = `${l}px`; container.style.top = `${t}px`;
     };
-    const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); document.body.style.userSelect = ''; };
     window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
   };
-  const mk = (cls: string, dir: string) => { const h = document.createElement('div'); h.className = `lb-resize-handle ${cls}`; h.addEventListener('mousedown', (e) => start(dir, e)); container.appendChild(h); };
+  const mk = (cls: string, dir: string) => { const h = document.createElement('div'); h.className = `lb-resize-handle ${cls}`; h.addEventListener('mousedown', (e) => start(dir, e)); root.appendChild(h); };
   mk('lb-rh-n', 'n'); mk('lb-rh-s', 's'); mk('lb-rh-e', 'e'); mk('lb-rh-w', 'w');
   mk('lb-rh-ne', 'ne'); mk('lb-rh-nw', 'nw'); mk('lb-rh-se', 'se'); mk('lb-rh-sw', 'sw');
+  const clampIntoViewport = () => {
+    const d = docRect();
+    const r = container.getBoundingClientRect();
+    let l = clamp(r.left, 0, Math.max(0, d.width - r.width));
+    let t = clamp(r.top, 0, Math.max(0, d.height - r.height));
+    let w = clamp(r.width, 480, d.width);
+    let h = clamp(r.height, 360, d.height);
+    if (l + w > d.width) l = d.width - w;
+    if (t + h > d.height) t = d.height - h;
+    container.style.left = `${Math.max(0, l)}px`;
+    container.style.top = `${Math.max(0, t)}px`;
+    container.style.width = `${w}px`;
+    container.style.height = `${h}px`;
+  };
+  window.addEventListener('resize', clampIntoViewport);
 };
 
 let __lbKeydownHandler: ((e: KeyboardEvent) => void) | null = null;
@@ -270,7 +285,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       try {
         const onClose = () => { deactivateInteractionBlockers(overlay); overlay.remove(); };
         const root = mountOverlay(shadow, onClose, (el: HTMLElement | null) => { if (el) enableDrag(container, el); });
-        enableResize(container);
+        enableResize(container, shadow);
         (overlay as any).__lbRoot = root;
       } catch (e) {
         console.error('Failed to mount React overlay', e);
