@@ -2,12 +2,12 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const Dotenv = require('dotenv-webpack');
 
 module.exports = {
   mode: 'development',
   entry: {
     popup: './src/popup/index.tsx',
-    // Include overlay entry inside content bundle via import, so no separate file needed
     content: './src/content/index.ts',
     background: './src/background/index.ts'
   },
@@ -15,7 +15,7 @@ module.exports = {
     path: path.resolve(__dirname, 'dist'),
     filename: '[name].js',
     clean: true,
-    publicPath: ''  // For Chrome extensions, ensure relative paths
+    publicPath: '' 
   },
   module: {
     rules: [
@@ -57,6 +57,9 @@ module.exports = {
   plugins: [
     new MiniCssExtractPlugin({
       filename: 'styles.css',
+    }),
+    new Dotenv({
+      systemvars: true
     }),
     new HtmlWebpackPlugin({
       template: './public/popup.html',
