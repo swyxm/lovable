@@ -16,7 +16,7 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
   useEffect(() => { onHeaderReady?.(headerRef.current); }, [onHeaderReady]);
 
   return (
-    <div className={`min-h-full h-full w-full bg-white text-slate-700 ${a11y.largeText ? 'lb-large-text' : ''} ${a11y.highContrast ? 'lb-high-contrast' : ''} ${a11y.reduceMotion ? 'lb-reduce-motion' : ''}`}>
+    <div className={`relative min-h-full h-full w-full bg-white text-slate-700 ${a11y.largeText ? 'lb-large-text' : ''} ${a11y.highContrast ? 'lb-high-contrast' : ''} ${a11y.reduceMotion ? 'lb-reduce-motion' : ''}`}>
       <div ref={headerRef} id="lb-header" className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-200 select-none">
         <div className="flex items-center gap-2">
           <span className="text-2xl font-bold text-sky-600">LovaBridge Buddy</span>
@@ -53,7 +53,7 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
             </div>
           </div>
         )}
-        <div className="fixed left-4 bottom-4 z-50">
+        <div className="absolute left-4 top-4 z-50">
           <A11yMenu value={a11y} onChange={setA11y} />
         </div>
       </div>
