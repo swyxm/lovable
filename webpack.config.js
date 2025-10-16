@@ -6,7 +6,8 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 module.exports = {
   mode: 'development',
   entry: {
-    popup: './src/popup/App.tsx',
+    popup: './src/popup/index.tsx',
+    // Include overlay entry inside content bundle via import, so no separate file needed
     content: './src/content/index.ts',
     background: './src/background/index.ts'
   },
@@ -14,7 +15,7 @@ module.exports = {
     path: path.resolve(__dirname, 'dist'),
     filename: '[name].js',
     clean: true,
-    publicPath: '/'  // This ensures paths are relative to the extension root
+    publicPath: ''  // For Chrome extensions, ensure relative paths
   },
   module: {
     rules: [
@@ -27,7 +28,18 @@ module.exports = {
         test: /\.css$/,
         use: [
           MiniCssExtractPlugin.loader,
-          'css-loader'
+          'css-loader',
+          {
+            loader: 'postcss-loader',
+            options: {
+              postcssOptions: {
+                plugins: [
+                  require('@tailwindcss/postcss'),
+                  require('autoprefixer')
+                ]
+              }
+            }
+          }
         ]
       },
       {
@@ -55,7 +67,7 @@ module.exports = {
     new CopyWebpackPlugin({
       patterns: [
         { 
-          from: 'public/manifest.json', 
+          from: 'manifest.json', 
           to: 'manifest.json',
           transform(content) {
             // Update manifest paths during copy

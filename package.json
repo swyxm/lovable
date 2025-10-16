@@ -27,12 +27,15 @@
   },
   "homepage": "https://github.com/swyxm/lovable#readme",
   "dependencies": {
+    "lucide-react": "^0.545.0",
     "react": "^18.2.0",
+    "react-colorful": "^5.6.1",
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.14",
     "@types/chrome": "^0.0.250",
+    "@types/dom-speech-recognition": "^0.0.7",
     "@types/node": "^20.8.0",
     "@types/react": "^18.2.21",
     "@types/react-dom": "^18.2.7",
@@ -47,7 +50,7 @@
     "html-webpack-plugin": "^5.5.1",
     "mini-css-extract-plugin": "^2.9.4",
     "postcss": "^8.5.6",
-    "postcss-loader": "^7.3.3",
+    "postcss-loader": "^7.3.4",
     "style-loader": "^3.3.3",
     "tailwindcss": "^4.1.14",
     "ts-loader": "^9.4.4",

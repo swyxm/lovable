@@ -1,0 +1,15 @@
+@source "./**/*.{ts,tsx,js,jsx}";
+@source "../public/**/*.{html,js}";
+
+/* Tailwind v4 entry */
+@import "tailwindcss";
+
+html, body {
+  width: 320px;
+  height: 200px;
+}
+
+.lb-large-text { font-size: 18px; }
+.lb-high-contrast { filter: contrast(1.15) saturate(1.1); }
+.lb-high-contrast * { border-color: #1f2937 !important; }
+.lb-reduce-motion * { transition-duration: 1ms !important; animation-duration: 1ms !important; }
