@@ -16,3 +16,11 @@ html, body {
 
 .lb-scroll::-webkit-scrollbar { width: 10px; }
 .lb-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; border: 2px solid transparent; background-clip: content-box; }
+.lb-scroll::-webkit-scrollbar-corner { background: transparent !important; }
+.lb-scroll::-webkit-resizer { background: transparent !important; }
+
+.react-colorful { width: 200px; height: 200px; position: relative; }
+.react-colorful__saturation { position: relative; border-radius: 8px; height: 160px; background-image: linear-gradient(0deg, #000, transparent), linear-gradient(90deg, #fff, rgba(255,255,255,0)); cursor: crosshair; }
+.react-colorful__pointer { width: 14px; height: 14px; border-radius: 50%; box-shadow: 0 0 0 2px #fff, 0 0 0 3px #0ea5e9; transform: translate(-7px, -7px); }
+.react-colorful__hue { height: 12px; border-radius: 6px; margin-top: 12px; background: linear-gradient(90deg, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%); cursor: ew-resize; }
+.react-colorful__hue .react-colorful__pointer { box-shadow: 0 0 0 2px #fff, 0 0 0 3px #0ea5e9; }
