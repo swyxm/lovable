@@ -24,9 +24,9 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
   const [error, setError] = useState<string | null>(null);
   const [showFinal, setShowFinal] = useState(false);
   const [finalOut, setFinalOut] = useState<string>('');
-  
   const [plan, setPlan] = useState<LlmPlan | null>(null);
   const [stepIdx, setStepIdx] = useState<number>(0);
+  
 
   const startPlan = async (nextCtx: PromptContext) => {
     setLoading(true);
@@ -79,7 +79,9 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
           <span className="text-2xl font-bold text-sky-600">LovaBridge Buddy</span>
           <span className="text-slate-500 hidden sm:inline">– Create something wonderful</span>
         </div>
-        <button title="Close" className="rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-200 text-2xl leading-none" onClick={onClose}>×</button>
+        <div className="flex items-center gap-2">
+          <button title="Close" className="rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-200 text-2xl leading-none" onClick={onClose}>×</button>
+        </div>
       </div>
 
       <div className="lb-scroll h-[calc(100%-48px)] overflow-auto p-4 pb-8 bg-white">
