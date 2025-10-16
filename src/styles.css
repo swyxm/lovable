@@ -13,3 +13,6 @@ html, body {
 .lb-high-contrast { filter: contrast(1.15) saturate(1.1); }
 .lb-high-contrast * { border-color: #1f2937 !important; }
 .lb-reduce-motion * { transition-duration: 1ms !important; animation-duration: 1ms !important; }
+
+.lb-scroll::-webkit-scrollbar { width: 10px; }
+.lb-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; border: 2px solid transparent; background-clip: content-box; }
