@@ -7,9 +7,12 @@ const App: React.FC = () => {
         const tab = tabs[0];
         const tabId = tab?.id;
         const url = tab?.url || '';
-        if (!/^https?:\/\//.test(url) && !/^file:\/\//.test(url)) {
-          alert('Open a normal web page (http/https) to use the overlay.');
-        return;
+        const isLovable = /^https?:\/\/(?:[^\/]*\.)?lovable\.dev\//i.test(url);
+        if (!isLovable) {
+          if (confirm('Please open lovable.dev to use LovaBridge Buddy. Go there now?')) {
+            chrome.tabs.update(tabId!, { url: 'https://lovable.dev' });
+          }
+          return;
         }
         if (tabId) {
           chrome.tabs.sendMessage(tabId, { action: 'toggleOverlay' }, () => {

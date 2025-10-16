@@ -117,6 +117,12 @@ const enableResize = (container: HTMLElement) => {
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'toggleOverlay') {
+    const host = location.hostname || '';
+    const isLovable = /(^|\.)lovable\.dev$/i.test(host);
+    if (!isLovable) {
+      sendResponse?.({ success: false, error: 'not_lovable' });
+      return true;
+    }
     let overlay = document.querySelector('.lovabridge-overlay') as HTMLElement;
     if (!overlay) {
       overlay = document.createElement('div');
