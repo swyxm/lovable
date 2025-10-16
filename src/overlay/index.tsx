@@ -4,6 +4,8 @@ import OverlayApp from './OverlayApp';
 
 export function mountOverlay(shadowRoot: ShadowRoot, onClose: () => void, onHeaderReady?: (el: HTMLElement | null) => void): Root {
   const mount = document.createElement('div');
+  mount.style.width = '100%';
+  mount.style.height = '100%';
   shadowRoot.appendChild(mount);
   const root = createRoot(mount);
   root.render(

@@ -5,6 +5,7 @@ export interface A11yState {
   largeText: boolean;
   highContrast: boolean;
   reduceMotion: boolean;
+  boldText: boolean;
 }
 
 interface Props {
@@ -30,7 +31,7 @@ export default function A11yMenu({ value, onChange }: Props) {
         <Accessibility size={18} />
       </button>
       <div
-        className={`flex items-center gap-2 transition-all duration-300 ${open ? 'opacity-100 translate-x-0 max-w-[420px]' : 'opacity-0 -translate-x-2 max-w-0 overflow-hidden'}`}
+        className={`flex items-center gap-2 flex-nowrap whitespace-nowrap overflow-hidden transition-all duration-300 ${open ? 'opacity-100 translate-x-0 max-w-[420px]' : 'opacity-0 -translate-x-2 max-w-0'}`}
       >
         <button
           className={`px-3 py-1 rounded-full border text-sm ${value.largeText ? 'bg-sky-500 text-white border-sky-500' : 'bg-white text-slate-700 border-slate-300 hover:border-sky-400'}`}
@@ -49,6 +50,12 @@ export default function A11yMenu({ value, onChange }: Props) {
           onClick={() => toggle('reduceMotion')}
         >
           Reduce motion
+        </button>
+        <button
+          className={`px-3 py-1 rounded-full border text-sm ${value.boldText ? 'bg-sky-500 text-white border-sky-500' : 'bg-white text-slate-700 border-slate-300 hover:border-sky-400'}`}
+          onClick={() => toggle('boldText')}
+        >
+          Bold
         </button>
       </div>
     </div>
