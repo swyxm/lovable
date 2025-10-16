@@ -13,13 +13,14 @@ export default function DrawCanvas() {
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return; const ctx = canvas.getContext('2d');
     if (!ctx) return; ctx.lineCap = 'round'; ctx.strokeStyle = color; ctx.lineWidth = brush; ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    canvas.style.touchAction = 'none';
   }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return; const ctx = canvas.getContext('2d'); if (!ctx) return;
     let drawing = false; let lastX = 0; let lastY = 0;
     const getXY = (e: MouseEvent) => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
-    const down = (e: MouseEvent) => { drawing = true; const p = getXY(e); lastX = p.x; lastY = p.y; };
+    const down = (e: MouseEvent) => { drawing = true; const p = getXY(e); lastX = p.x; lastY = p.y; e.preventDefault(); };
     const move = (e: MouseEvent) => {
       if (!drawing) return; const p = getXY(e);
       if (isEraser) { ctx.globalCompositeOperation = 'destination-out'; ctx.lineWidth = 14; }
