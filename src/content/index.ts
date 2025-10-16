@@ -51,8 +51,12 @@ const enableDrag = (el: HTMLElement, handle?: HTMLElement) => {
     if (!dragging) return;
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
-    el.style.left = `${originLeft + dx}px`;
-    el.style.top = `${originTop + dy}px`;
+    const overlayRect = document.documentElement.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    const newLeft = Math.min(Math.max(0, originLeft + dx), overlayRect.width - elRect.width);
+    const newTop = Math.min(Math.max(0, originTop + dy), overlayRect.height - elRect.height);
+    el.style.left = `${newLeft}px`;
+    el.style.top = `${newTop}px`;
   });
   window.addEventListener('mouseup', () => {
     dragging = false;
