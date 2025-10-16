@@ -24,7 +24,10 @@ export default function ColorCard({ label, hex, selected, onSelect }: Props) {
     style = { background: hex };
   }
   return (
-    <button className={`rounded-xl border p-3 text-left transition bg-white ${selected ? 'ring-2 ring-sky-400 border-sky-300' : 'border-slate-200'}`} onClick={() => onSelect(hex)}>
+    <button className={`relative rounded-xl border p-3 text-left transition ${selected ? 'bg-sky-100 ring-2 ring-sky-300 border-sky-300' : 'bg-white border-slate-200'}`} onClick={() => onSelect(hex)}>
+      {selected && (
+        <span className="absolute top-1.5 right-1.5 inline-flex items-center justify-center w-6 h-6 rounded-full bg-sky-400 text-white">✓</span>
+      )}
       <div className="flex items-center gap-4">
         <span className="inline-block w-14 h-14 md:w-16 md:h-16 rounded-full border" style={style} />
         <div className="min-w-0">

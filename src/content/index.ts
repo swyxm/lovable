@@ -23,6 +23,9 @@ const injectOverlayStyles = () => {
     
     .lovabridge-overlay.active {
       opacity: 1;
+      background: rgba(2, 6, 23, 0.35); /* dim background */
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
       pointer-events: auto;
     }
     
@@ -37,6 +40,7 @@ const injectOverlayStyles = () => {
       pointer-events: auto;
       contain: layout paint;
     }
+    .lovabridge-container:focus { outline: none; }
     .lovabridge-container::-webkit-scrollbar { width: 10px; }
     .lovabridge-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; border: 2px solid transparent; background-clip: content-box; }
 
@@ -114,6 +118,122 @@ const enableResize = (container: HTMLElement) => {
   mk('lb-rh-ne', 'ne'); mk('lb-rh-nw', 'nw'); mk('lb-rh-se', 'se'); mk('lb-rh-sw', 'sw');
 };
 
+let __lbKeydownHandler: ((e: KeyboardEvent) => void) | null = null;
+let __lbWheelHandler: ((e: Event) => void) | null = null;
+let __lbPointerHandler: ((e: Event) => void) | null = null;
+let __lbFocusHandler: ((e: FocusEvent) => void) | null = null;
+let __lbContainerKeydown: ((e: KeyboardEvent) => void) | null = null;
+let __lbContainerKeypress: ((e: KeyboardEvent) => void) | null = null;
+let __lbContainerKeyup: ((e: KeyboardEvent) => void) | null = null;
+
+const isEventInsideOverlay = (overlay: HTMLElement, e: Event) => {
+  const path = (e as any).composedPath ? (e as any).composedPath() : [];
+  return Array.isArray(path) ? path.includes(overlay) : overlay.contains(e.target as Node);
+};
+
+const activateInteractionBlockers = (overlay: HTMLElement, container: HTMLElement) => {
+  const prevOverflow = document.body.style.overflow;
+  (overlay as any).__lbPrevOverflow = prevOverflow;
+  document.body.style.overflow = 'hidden';
+
+  if (!container.hasAttribute('tabindex')) container.setAttribute('tabindex', '-1');
+  try { (document.activeElement as HTMLElement | null)?.blur?.(); } catch {}
+
+  if (!__lbKeydownHandler) {
+    __lbKeydownHandler = (e: KeyboardEvent) => {
+      if (!overlay.classList.contains('active')) return;
+      const inside = isEventInsideOverlay(overlay, e);
+      if (!inside) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('keydown', __lbKeydownHandler, true);
+  }
+
+  if (!__lbWheelHandler) {
+    __lbWheelHandler = (e: Event) => {
+      if (!overlay.classList.contains('active')) return;
+      const inside = isEventInsideOverlay(overlay, e);
+      if (!inside) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('wheel', __lbWheelHandler, { passive: false, capture: true } as any);
+  }
+
+  if (!__lbPointerHandler) {
+    __lbPointerHandler = (e: Event) => {
+      if (!overlay.classList.contains('active')) return;
+      const inside = isEventInsideOverlay(overlay, e);
+      if (!inside) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('pointerdown', __lbPointerHandler, true);
+    window.addEventListener('pointerup', __lbPointerHandler, true);
+    window.addEventListener('click', __lbPointerHandler, true);
+  }
+
+  if (!__lbFocusHandler) {
+    __lbFocusHandler = (e: FocusEvent) => {
+      if (!overlay.classList.contains('active')) return;
+      if (!isEventInsideOverlay(overlay, e)) {
+        e.stopPropagation();
+        e.preventDefault();
+        const sr = container.shadowRoot as ShadowRoot | null;
+        if (sr) {
+          const primary = sr.querySelector<HTMLElement>('[data-lb-primary-focus]');
+          if (primary) { try { primary.focus(); return; } catch {} }
+          const candidates = Array.from(sr.querySelectorAll<HTMLElement>('input, textarea, select, [contenteditable="true"], button, [tabindex]:not([tabindex="-1"])'));
+          const notInHeader = candidates.find(el => !el.closest('#lb-header'));
+          if (notInHeader) { try { notInHeader.focus(); return; } catch {} }
+        }
+        try { container.focus(); } catch {}
+      }
+    };
+    window.addEventListener('focusin', __lbFocusHandler as any, true);
+  }
+  if (!__lbContainerKeydown) {
+    __lbContainerKeydown = (e: KeyboardEvent) => { e.stopPropagation(); };
+    container.addEventListener('keydown', __lbContainerKeydown, false);
+  }
+  if (!__lbContainerKeypress) {
+    __lbContainerKeypress = (e: KeyboardEvent) => { e.stopPropagation(); };
+    container.addEventListener('keypress', __lbContainerKeypress, false);
+  }
+  if (!__lbContainerKeyup) {
+    __lbContainerKeyup = (e: KeyboardEvent) => { e.stopPropagation(); };
+    container.addEventListener('keyup', __lbContainerKeyup, false);
+  }
+};
+
+const deactivateInteractionBlockers = (overlay?: HTMLElement) => {
+  if (__lbKeydownHandler) { window.removeEventListener('keydown', __lbKeydownHandler, true); __lbKeydownHandler = null; }
+  if (__lbWheelHandler) { window.removeEventListener('wheel', __lbWheelHandler as any, true as any); __lbWheelHandler = null; }
+  if (__lbPointerHandler) {
+    window.removeEventListener('pointerdown', __lbPointerHandler, true);
+    window.removeEventListener('pointerup', __lbPointerHandler, true);
+    window.removeEventListener('click', __lbPointerHandler, true);
+    __lbPointerHandler = null;
+  }
+  if (__lbFocusHandler) { window.removeEventListener('focusin', __lbFocusHandler as any, true); __lbFocusHandler = null; }
+  try {
+    const container = overlay?.querySelector('.lovabridge-container') as HTMLElement | null;
+    if (container) {
+      if (__lbContainerKeydown) { container.removeEventListener('keydown', __lbContainerKeydown, false); __lbContainerKeydown = null; }
+      if (__lbContainerKeypress) { container.removeEventListener('keypress', __lbContainerKeypress, false); __lbContainerKeypress = null; }
+      if (__lbContainerKeyup) { container.removeEventListener('keyup', __lbContainerKeyup, false); __lbContainerKeyup = null; }
+    }
+  } catch {}
+  try {
+    const prev = (overlay as any)?.__lbPrevOverflow as string | undefined;
+    document.body.style.overflow = prev ?? '';
+  } catch {}
+};
+
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'toggleOverlay') {
@@ -148,7 +268,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       shadow.appendChild(link);
 
       try {
-        const onClose = () => overlay.remove();
+        const onClose = () => { deactivateInteractionBlockers(overlay); overlay.remove(); };
         const root = mountOverlay(shadow, onClose, (el: HTMLElement | null) => { if (el) enableDrag(container, el); });
         enableResize(container);
         (overlay as any).__lbRoot = root;
@@ -157,9 +277,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       }
       overlay.appendChild(container);
       document.body.appendChild(overlay);
+      activateInteractionBlockers(overlay, container);
       sendResponse?.({ success: true });
     } else {
       overlay.classList.toggle('active');
+      const container = overlay.querySelector('.lovabridge-container') as HTMLElement | null;
+      if (overlay.classList.contains('active') && container) {
+        activateInteractionBlockers(overlay, container);
+      } else {
+        deactivateInteractionBlockers(overlay);
+      }
       sendResponse?.({ success: true });
     }
     return true;

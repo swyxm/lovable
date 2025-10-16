@@ -19,7 +19,7 @@ Rules:
 - For colors, ensure WCAG-aware contrast pairs when relevant.
 - For palette/colors, set type="color" and put the palette in value as a comma-separated list of hex colors (e.g. "#ff0000,#00ff00,#0000ff").
 - Do NOT use emojis in labels when expected_field is "layout", "tone", or "font"; plain words only.
-- For fonts (expected_field="font"), choose widely available Google Fonts family names (e.g., "Poppins", "Nunito"). Put the family name in value (no commas), and set type="text".
+- For fonts (expected_field="font"), choose widely available Google Fonts family names with creative variety (e.g., "Poppins", "Nunito", "Playfair Display", "Roboto Mono", "Dancing Script", "Montserrat", "Lora", "Source Sans Pro"). Put the family name in value (no commas), and set type="text". Provide at least 4 diverse font options covering different styles (serif, sans-serif, display, monospace, script).
 - For layouts (expected_field="layout"), set type="layout" and use short ids in value containing these keywords so previews work: "grid", "card", "long-scroll", "gallery", "list", "hero", "sidebar", "split" (e.g., "grid-3", "card-grid", "long-scroll").
 - You MAY include an "emoji" per choice only when allowed (not for layout/tone/font). If emoji is not relevant, omit it.
 - AVOID asking obvious questions when context is clear (e.g., don't ask "what will people do" if purpose is already clear from base_idea).
@@ -35,12 +35,16 @@ Create a comprehensive, technical prompt for an LLM-based website builder (like 
 ${details}
 
 Requirements:
-- Generate a detailed, efficient prompt optimized for AI website generation
+- Generate a detailed, efficient prompt optimized for AI website generation. 
+- Do NOT make any assumptions beyond what is given in the details: ${details}.
+- Our goal is to make this child's prompt/idea come true. If the idea is interactive, focus on making that a reality. 
 - Include all necessary technical specifications (layout, colors, fonts, functionality)
 - Use clear, precise language suitable for an AI agent, not end users
 - Specify responsive design requirements, component structure, and visual hierarchy
 - Include accessibility considerations and modern web standards
-- Focus on actionable, implementable instructions for website generation`;
+- Focus on actionable, implementable instructions for website generation
+
+CRITICAL: Output ONLY the prompt text itself. Do NOT include any preamble, introduction, meta-commentary, or phrases like "Here is..." or "Based on...". Start directly with the prompt content.`;
 
 export const PLAN_QUESTIONS_TEMPLATE = (baseConcept, details) => `
 The user gave the idea: "${baseConcept}".
@@ -65,14 +69,14 @@ Output JSON only in this exact shape (no prose):
 Rules for choices:
 - Palette: type="color" and value is comma-separated hex list (2-5 colors); kid-friendly names; harmonious, distinct palettes.
 - Layout: exactly 3 choices; value short ids including one of: grid, card, long-scroll, gallery, list, hero, sidebar, split.
-- Font: Google Fonts family names in value; type="text".
+- Font: Google Fonts family names in value; type="text". Provide at least 4 diverse options covering different styles (serif, sans-serif, display, monospace, script).
 - No emojis in labels for layout, tone, or font.
 - Provide diverse, accessible options and avoid repetition.
 
 Planning constraints:
 - Include a step only if that attribute is missing from Current known details.
 - All steps MUST have distinct expected_field values (no duplicates or repeats).
-- Provide 3-6 steps total. Each step must include 3-6 choices.
+- Provide 3-6 steps total. Each step must include 3-6 choices (minimum 4 for font steps).
 - Prefer including a palette step over any single theme color.
 - Keep wording varied and concise; do not reuse the same sentence stem.
 
