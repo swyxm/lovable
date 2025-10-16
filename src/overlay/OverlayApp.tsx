@@ -13,6 +13,13 @@ type OverlayAppProps = {
   onHeaderReady?: (el: HTMLElement | null) => void;
 };
 
+const sanitizePrompt = (raw: string): string => {
+  let t = (raw || '').trim();
+  t = t.replace(/^```[a-zA-Z0-9_-]*\s*\n?/, '');
+  t = t.replace(/\n?```\s*$/, '');
+  return t.trim();
+};
+
 const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
   const headerRef = useRef<HTMLDivElement | null>(null);
   const [mode, setMode] = useState<'draw' | 'text'>('draw');
@@ -247,7 +254,18 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
               <h3 className="text-xl font-bold text-slate-800 mb-3">All set! Here’s your Lovable prompt:</h3>
               <pre className="whitespace-pre-wrap text-slate-700 bg-slate-50 p-3 rounded border border-slate-200 max-h-72 overflow-auto">{finalOut}</pre>
               <div className="text-right mt-4">
-                <button className="bg-sky-500 hover:bg-sky-600 text-white px-4 py-2 rounded-xl mr-2" onClick={() => navigator.clipboard.writeText(finalOut)}>Copy</button>
+                <button
+                  className="bg-sky-500 hover:bg-sky-600 text-white px-4 py-2 rounded-xl mr-2"
+                  onClick={() => {
+                    const toSend = sanitizePrompt(finalOut);
+                    try { navigator.clipboard.writeText(toSend); } catch {}
+                    try {
+                      const evt = new CustomEvent('lb:pastePrompt', { detail: { prompt: toSend } });
+                      window.dispatchEvent(evt);
+                      chrome?.storage?.local?.set?.({ lb_pending_prompt: toSend }, () => {});
+                    } catch {}
+                  }}
+                >Copy & Paste</button>
                 <button className="bg-slate-300 hover:bg-slate-400 text-slate-800 px-4 py-2 rounded-xl" onClick={() => { setShowFinal(false); setQ(null); setTextIdea(''); setCtx({}); setPlan(null); setStepIdx(0); setInputLocked(false); }}>Start over</button>
               </div>
             </div>
