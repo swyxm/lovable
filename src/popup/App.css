@@ -1,0 +1,249 @@
+.app {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.app-header {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 20px;
+  text-align: center;
+  border-radius: 0 0 20px 20px;
+  backdrop-filter: blur(10px);
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 2.5rem;
+  font-weight: 700;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.app-header p {
+  margin: 10px 0 0 0;
+  font-size: 1.1rem;
+  opacity: 0.9;
+}
+
+.app-main {
+  padding: 20px;
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+}
+
+.conversation-container {
+  margin-bottom: 20px;
+}
+
+.conversation-step {
+  margin-bottom: 20px;
+  opacity: 0.7;
+  transform: translateY(10px);
+  transition: all 0.3s ease;
+}
+
+.conversation-step.active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.assistant-message {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 15px 20px;
+  border-radius: 20px;
+  margin-bottom: 15px;
+  font-size: 1.1rem;
+  line-height: 1.5;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  position: relative;
+}
+
+.assistant-message::before {
+  content: '🐉';
+  position: absolute;
+  top: -10px;
+  left: 15px;
+  background: #667eea;
+  padding: 5px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+}
+
+.options-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.option-button {
+  background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 25px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+}
+
+.option-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
+}
+
+.option-button:active {
+  transform: translateY(0);
+}
+
+.input-container {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 20px;
+  backdrop-filter: blur(10px);
+}
+
+.input-methods {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.input-button {
+  background: linear-gradient(135deg, #4ecdc4, #44a08d);
+  color: white;
+  border: none;
+  padding: 15px;
+  border-radius: 15px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 15px rgba(78, 205, 196, 0.3);
+}
+
+.input-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(78, 205, 196, 0.4);
+}
+
+.input-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.text-input-area {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.text-input {
+  background: rgba(255, 255, 255, 0.9);
+  color: #333;
+  border: none;
+  border-radius: 15px;
+  padding: 15px;
+  font-size: 1rem;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 80px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.text-input:focus {
+  outline: none;
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+}
+
+.submit-button {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  padding: 12px 25px;
+  border-radius: 25px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  align-self: flex-end;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.submit-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.submit-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.app-footer {
+  text-align: center;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 20px 20px 0 0;
+  backdrop-filter: blur(10px);
+}
+
+.app-footer p {
+  margin: 0;
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .option-button,
+  .input-button,
+  .submit-button {
+    border: 2px solid white;
+  }
+}
+
+/* Focus indicators for keyboard navigation */
+.option-button:focus,
+.input-button:focus,
+.submit-button:focus,
+.text-input:focus {
+  outline: 3px solid #ffd700;
+  outline-offset: 2px;
+}
+
+/* Large text support */
+@media (min-resolution: 2dppx) {
+  .app-header h1 {
+    font-size: 3rem;
+  }
+  
+  .option-button,
+  .input-button {
+    font-size: 1.2rem;
+    min-height: 70px;
+  }
+}

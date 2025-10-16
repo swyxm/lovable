@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "LovaBridge",
+  "version": "1.0.0",
+  "description": "A friendly Chrome extension to help create websites with Lovable",
+  "permissions": ["storage", "activeTab"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "LovaBridge - Start creating!"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["content.css"],
+      "matches": ["<all_urls>"],
+      "use_dynamic_url": true
+    }
+  ]
+}

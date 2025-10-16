@@ -1,0 +1,58 @@
+{
+  "name": "lovable",
+  "version": "1.0.0",
+  "description": "LovaBridge - A friendly Chrome extension for Lovable website builder",
+  "main": "index.js",
+  "scripts": {
+    "build": "webpack --mode production",
+    "dev": "webpack --mode development --watch",
+    "clean": "rm -rf dist",
+    "start": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "chrome-extension",
+    "lovable",
+    "website-builder",
+    "accessibility"
+  ],
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/swyxm/lovable.git"
+  },
+  "bugs": {
+    "url": "https://github.com/swyxm/lovable/issues"
+  },
+  "homepage": "https://github.com/swyxm/lovable#readme",
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.14",
+    "@types/chrome": "^0.0.250",
+    "@types/node": "^20.8.0",
+    "@types/react": "^18.2.21",
+    "@types/react-dom": "^18.2.7",
+    "@typescript-eslint/eslint-plugin": "^6.8.0",
+    "@typescript-eslint/parser": "^6.8.0",
+    "autoprefixer": "^10.4.21",
+    "copy-webpack-plugin": "^11.0.0",
+    "css-loader": "^6.8.1",
+    "eslint": "^8.52.0",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "html-webpack-plugin": "^5.5.1",
+    "mini-css-extract-plugin": "^2.9.4",
+    "postcss": "^8.5.6",
+    "postcss-loader": "^7.3.3",
+    "style-loader": "^3.3.3",
+    "tailwindcss": "^4.1.14",
+    "ts-loader": "^9.4.4",
+    "typescript": "^5.2.2",
+    "webpack": "^5.88.2",
+    "webpack-cli": "^5.1.4"
+  }
+}
