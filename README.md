@@ -9,15 +9,9 @@ LovaBuddy runs as a friendly overlay on top of the Lovable website builder. It g
 ## Highlights
 
 - Kid‑friendly, guided tutorial that teaches tools step‑by‑step (pen, eraser, bucket, save, gallery, describe).
-- Playful loading with sprite animation and rotating, whimsical messages (“Sprinkling magic dust…”, “Painting rainbow colors…”, etc.).
-- Drawing canvas with shapes (circle/square/star/diamond), colors, eraser, bucket fill, brush size, and a live cursor ring.
+- Drawing canvas with shapes (circle/square/star/diamond), colors, eraser, bucket fill, brush size, undo, redo, etc, etc.
 - Save drawings to a gallery (click a thumbnail to open; hover to delete). “Saved!” confirmation appears centered.
-- Undo/Redo via toolbar buttons (no keyboard shortcuts required).
-- Description input with an inline Submit button; pressing Enter works too.
-- Congrats flow with a clean “Close” button (non‑tutorial) or “Exit tutorial” (tutorial).
 - Accessibility menu (Material Symbols icon) for Large Text, High Contrast, Bold text, and optional TTS hooks.
-- Clean centered header branding (icon + “LovaBuddy”) with Fredoka font and rounded UI.
-- Launcher/popup validates domain: if you aren’t on Lovable, the button changes to yellow (“Must be on Lovable.dev. Press to open.”) and opens `lovable.dev` in a new tab.
 
 ## How it works
 
@@ -25,6 +19,19 @@ LovaBuddy runs as a friendly overlay on top of the Lovable website builder. It g
 - A sprite animation (`AnimCycle`) displays during loading, cycling images every 200ms; loading messages rotate every ~4–5 seconds.
 - The tutorial overlay appears as a right‑hand pane with typing text, an avatar, and a single Next button; the main app reacts (e.g., opens drawing) at each step.
 - Drawings and gallery data are stored in `chrome.storage.local`.
+
+## How AI is Used
+
+LovaBuddy’s intelligence centers on a multimodal AI pipeline that translates a child’s imagination—whether drawn or described—into structured, build-ready instructions. When a learner submits a sketch or short description, our language model interprets the input and identifies gaps that could hinder generation. It then formulates adaptive follow-up questions—delivered as simple, visual choices—to help the child clarify intent without needing prompt-engineering skills.
+
+From these responses, the AI synthesizes a rich, context-aware prompt that is passed to the Lovable builder for webpage creation. Once a draft site appears, LovaBuddy’s extension acts as an AI co-designer, parsing the live DOM to understand layout, semantics, and accessibility features. It can then offer in-place visual suggestions—such as color adjustments, layout refinements, or text readability improvements—anchored to the real content on screen.
+
+This process is powered by a set of coordinated agents specialized in idea refinement, sketch extraction, prompt generation, and live page enhancement. Each agent communicates with the others to maintain coherence between creative intent and technical execution.
+
+The system also incorporates Google Cloud’s Gemini text-to-speech engine, giving LovaBuddy a voice that can narrate options and feedback in an engaging, supportive tone—helping learners with reading or visual challenges participate fully. Throughout this process, AI decisions are guided by accessibility-first heuristics aligned with WCAG standards, ensuring every suggestion moves the design closer to inclusivity.
+
+As LovaBuddy evolves, these intelligent modules can grow into themed “quests” that teach design thinking, prompt reasoning, and accessibility awareness—meeting kids where they are while preparing them for where technology is going.
+
 
 ## Directory overview
 
