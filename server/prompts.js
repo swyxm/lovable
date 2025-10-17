@@ -44,12 +44,31 @@ Requirements:
 - Include accessibility considerations and modern web standards
 - Focus on actionable, implementable instructions for website generation
 
-CRITICAL: Output ONLY the prompt text itself. Do NOT include any preamble, introduction, meta-commentary, or phrases like "Here is..." or "Based on...". Start directly with the prompt content.`;
+ABSOLUTELY CRITICAL OUTPUT RULES:
+- Output ONLY the prompt text itself
+- Do NOT include ANY preamble, introduction, meta-commentary, or explanatory text
+- Do NOT use phrases like "Here is...", "Based on...", "Of course...", "I'll create...", "Let me...", or similar
+- Do NOT include code fences (\`\`\`) around the output
+- Do NOT add any text before or after the actual prompt
+- Start immediately with the prompt content (e.g., "Create a website for...")
+- End immediately after the prompt content
+- The output should be the raw prompt text that can be directly used in Lovable`;
 
-export const PLAN_QUESTIONS_TEMPLATE = (baseConcept, details) => `
+export const PLAN_QUESTIONS_TEMPLATE = (baseConcept, details, drawingImage) => `
 The user gave the idea: "${baseConcept}".
 Current known details:
 ${details}
+
+${drawingImage ? `
+IMPORTANT: The user has also provided a drawing/image that should inform the planning. Analyze the visual elements in the drawing and use them to:
+- Suggest color palettes that match or complement what's shown in the drawing
+- Recommend layout patterns that align with the visual structure in the drawing
+- Consider the overall aesthetic and mood of the drawing when planning questions
+- Use the drawing as visual context to avoid asking redundant questions about things already clear from the image
+
+The drawing should help you create more informed and relevant questions that build upon what the user has already visually communicated.
+` : ''}
+
 Plan 3-6 questions to fill only the missing attributes from this set: palette, layout, font, tone, main_character, purpose.
 Avoid asking for theme_color if a palette will be collected. Do NOT ask obvious things already clear from the base idea.
 
@@ -86,4 +105,3 @@ Hard requirements:
 - Prioritize concrete design steps first in this order when missing: palette → layout → font; then include tone/main_character/purpose only as needed to reach 3–6 total distinct steps.
 - Ensure all questions are about different attributes; never ask two questions for the same attribute.
 - Labels should be short and friendly; no emojis for layout/tone/font.`;
-

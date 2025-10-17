@@ -58,6 +58,6 @@ export interface LlmPlan {
   }>;
 }
 
-export async function planQuestions(context: PromptContext): Promise<LlmPlan> {
-  return post<LlmPlan>('/conversation/plan', { context });
+export async function planQuestions(context: PromptContext, drawingImage?: string | null): Promise<LlmPlan> {
+  return post<LlmPlan>('/conversation/plan', { context, drawingImage });
 }

@@ -192,14 +192,18 @@ app.post('/conversation/final', async (req, res) => {
 });
 
 app.post('/conversation/plan', async (req, res) => {
-  const { context } = req.body || {};
+  const { context, drawingImage } = req.body || {};
   const base = context?.base_idea || 'a fun website';
   const details = JSON.stringify(context, null, 2);
   try {
-    const prompt = PLAN_QUESTIONS_TEMPLATE(base, details);
+    const prompt = PLAN_QUESTIONS_TEMPLATE(base, details, drawingImage);
+    const userParts = [{ text: prompt }];
+    if (drawingImage) {
+      const base64Data = drawingImage.replace(/^data:image\/[a-z]+;base64,/, '');
+    }
     const data = await callLLM(`/models/${LLM_MODEL}:generateContent`, {
       systemInstruction: { role: 'system', parts: [{ text: SYSTEM_TEMPLATE }] },
-      contents: [ { role: 'user', parts: [{ text: prompt }] } ],
+      contents: [ { role: 'user', parts: userParts } ],
       generationConfig: {
         temperature: 0.5,
         topK: 30,
