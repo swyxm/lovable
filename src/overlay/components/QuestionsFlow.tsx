@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { LlmPlan, LlmQuestion, PromptContext, finalPrompt, planQuestions } from '../../ai/llm';
 import OptionCard from './OptionCard';
 import LayoutCard from './LayoutCard';
@@ -6,6 +6,7 @@ import ColorCard from './ColorCard';
 import FontCard from './FontCard';
 import LoadingSpinner from './LoadingSpinner';
 import { speakText, createAudioButton, preloadAudio, playPreloadedAudio, stopCurrentAudio, preloadMultipleAudio } from '../../ai/tts';
+import AnimCycle from './AnimCycle';
 
 type QuestionsFlowProps = {
   initialContext: PromptContext;
@@ -22,6 +23,9 @@ const QuestionsFlow: React.FC<QuestionsFlowProps> = ({ initialContext, drawingIm
   const [stepIdx, setStepIdx] = useState<number>(0);
   const [q, setQ] = useState<LlmQuestion | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [loadingMsgs, setLoadingMsgs] = useState<string[] | null>(null);
+  const [loadingKey, setLoadingKey] = useState<number>(0);
+  const finishingRef = useRef<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [selection, setSelection] = useState<{ field: keyof PromptContext | null; value: string | null; label: string | null }>({ field: null, value: null, label: null });
   const [preloadedAudios, setPreloadedAudios] = useState<Map<string, HTMLAudioElement>>(new Map());
@@ -55,6 +59,14 @@ const QuestionsFlow: React.FC<QuestionsFlowProps> = ({ initialContext, drawingIm
     let cancelled = false;
     const boot = async () => {
       setLoading(true);
+      setLoadingMsgs([
+        'Sprinkling magic dust…',
+        'Gathering awesome ideas…',
+        'Painting rainbow colors…',
+        'Choosing friendly fonts…',
+        'Warming up our build bots…',
+      ]);
+      setLoadingKey((k) => k + 1);
       setError(null);
       try {
         const p = await planQuestions(initialContext, drawingImage);
@@ -120,8 +132,35 @@ const QuestionsFlow: React.FC<QuestionsFlowProps> = ({ initialContext, drawingIm
       const nextQuestion = plan.steps[nextIndex] as LlmQuestion;
       setQ(nextQuestion);
       setSelection({ field: null, value: null, label: null });
-      
-      if (ttsEnabled) {
+
+      } else {
+        finishingRef.current = true;
+        setQ(null);
+        setLoading(true);
+        const paletteStr = Array.isArray((nextCtx as any).palette) ? ((nextCtx as any).palette as string[]).join(',') : '';
+        const warm = /(#ef4444|red|orange|#f59e0b)/i.test(paletteStr);
+        const cool = /(#3b82f6|#22c55e|blue|green|teal)/i.test(paletteStr);
+        const vibe = warm ? 'fiery colors' : cool ? 'cool palette' : 'chosen style';
+        setLoadingMsgs([
+          'Casting the build spell…',
+          `Building your ${vibe}…`,
+          'Adding extra sparkles…',
+          'Packing everything nicely…',
+          'Almost ready…',
+        ]);
+        setLoadingKey((k) => k + 1);
+        try {
+          const fin = await finalPrompt(nextCtx);
+          onFinal(fin.prompt || '', fin.json || nextCtx);
+        } catch (e: any) {
+          setError(e?.message || 'Request failed');
+          onError?.(e?.message || 'Request failed');
+        } finally {
+        }
+      }
+    }
+        
+    if (ttsEnabled) {
         const nextQuestionText = createQuestionText(nextQuestion);
         const nextAudio = preloadedAudios.get(nextQuestionText);
         if (nextAudio) {
@@ -130,10 +169,7 @@ const QuestionsFlow: React.FC<QuestionsFlowProps> = ({ initialContext, drawingIm
           const fallbackAudio = await preloadAudio(nextQuestionText, ttsVoice);
           if (fallbackAudio) {
             await playPreloadedAudio(fallbackAudio);
-          }
-        }
-      }
-    } else {
+        }else {
       setLoading(true);
       try {
         const fin = await finalPrompt(nextCtx);
@@ -145,6 +181,33 @@ const QuestionsFlow: React.FC<QuestionsFlowProps> = ({ initialContext, drawingIm
         setLoading(false);
       }
     }
+  };
+
+  const LoadingSequence: React.FC<{ messages: string[]; intervalMs?: number }> = ({ messages, intervalMs = 5000 }) => {
+    const [idx, setIdx] = useState(0);
+    const [typed, setTyped] = useState('');
+    useEffect(() => {
+      let cancelled = false;
+      let t: number | null = null;
+      const tick = () => {
+        if (cancelled) return;
+        setIdx((i) => (i + 1) % messages.length);
+        t = window.setTimeout(tick, intervalMs);
+      };
+      t = window.setTimeout(tick, intervalMs);
+      return () => { cancelled = true; if (t) window.clearTimeout(t); };
+    }, [messages.length, intervalMs]);
+    useEffect(() => {
+      setTyped('');
+      let i = 0; const iv = window.setInterval(() => { i += 1; const m = messages[idx] || ''; setTyped(m.slice(0, i)); if (i >= m.length) window.clearInterval(iv); }, 18);
+      return () => window.clearInterval(iv);
+    }, [idx, messages]);
+    return (
+      <div className="flex flex-col items-center justify-center gap-2 py-4">
+        <AnimCycle />
+        <span className="text-sky-600 text-lg font-semibold">{typed}</span>
+      </div>
+    );
   };
 
   return (
@@ -159,7 +222,7 @@ const QuestionsFlow: React.FC<QuestionsFlowProps> = ({ initialContext, drawingIm
           </div>
         </div>
       )}
-      {loading && <LoadingSpinner />}
+      {(loading || (!q && !error)) && <LoadingSequence key={loadingKey} messages={loadingMsgs || ['Working…']} intervalMs={4000} />}
       {!loading && q && (
         <div>
           <div className="flex items-center gap-2 mb-3">

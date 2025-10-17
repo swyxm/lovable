@@ -25,6 +25,8 @@ export default function DrawCanvas({ exposeGetImage }: DrawCanvasProps) {
   const [saved, setSaved] = useState<SavedDrawing[]>([]);
   const historyRef = useRef<ImageData[]>([]);
   const historyIndexRef = useRef<number>(-1);
+  const [highlight, setHighlight] = useState<'pen' | 'eraser' | 'bucket' | 'save' | 'undo' | 'redo' | 'history' | null>(null);
+  const [showSavedMsg, setShowSavedMsg] = useState(false);
 
   useEffect(() => {
     chrome.storage?.local.get(['lb_drawings'], (res) => {
@@ -125,29 +127,61 @@ export default function DrawCanvas({ exposeGetImage }: DrawCanvasProps) {
     return () => { canvas.removeEventListener('mousedown', down); canvas.removeEventListener('mousemove', move); canvas.removeEventListener('mouseleave', leave); window.removeEventListener('mouseup', up); };
   }, [isEraser, isBucket, shapeMode, color, brush]);
 
+  // Listen for tutorial highlight events to spotlight toolbar buttons
+  useEffect(() => {
+    const onHi = (e: any) => { setHighlight(e?.detail?.tool || null); };
+    const onClear = () => setHighlight(null);
+    window.addEventListener('lb:tutorialHighlight', onHi as EventListener);
+    window.addEventListener('lb:tutorialHighlightClear', onClear as EventListener);
+    return () => { window.removeEventListener('lb:tutorialHighlight', onHi as EventListener); window.removeEventListener('lb:tutorialHighlightClear', onClear as EventListener); };
+  }, []);
+
   const clear = () => { const c = canvasRef.current; if (!c) return; const ctx = c.getContext('2d'); if (!ctx) return; ctx.fillStyle = 'white'; ctx.fillRect(0, 0, c.width, c.height); };
-  const save = () => { const c = canvasRef.current; if (!c) return; const url = c.toDataURL('image/png'); const entry: SavedDrawing = { id: `${Date.now()}`, dataUrl: url, createdAt: Date.now() }; const next = [entry, ...saved].slice(0, 100); setSaved(next); chrome.storage?.local.set({ lb_drawings: next }); };
+  const save = () => { const c = canvasRef.current; if (!c) return; const url = c.toDataURL('image/png'); const entry: SavedDrawing = { id: `${Date.now()}`, dataUrl: url, createdAt: Date.now() }; const next = [entry, ...saved].slice(0, 100); setSaved(next); chrome.storage?.local.set({ lb_drawings: next }); setShowSavedMsg(true); window.setTimeout(() => setShowSavedMsg(false), 1200); try { window.dispatchEvent(new CustomEvent('lb:tutorialSaved')); } catch {} };
   const undo = () => { const c = canvasRef.current; if (!c) return; const ctx = c.getContext('2d'); if (!ctx) return; if (historyIndexRef.current > 0) { historyIndexRef.current -= 1; const img = historyRef.current[historyIndexRef.current]; ctx.putImageData(img, 0, 0); } };
   const redo = () => { const c = canvasRef.current; if (!c) return; const ctx = c.getContext('2d'); if (!ctx) return; if (historyIndexRef.current < historyRef.current.length - 1) { historyIndexRef.current += 1; const img = historyRef.current[historyIndexRef.current]; ctx.putImageData(img, 0, 0); } };
+
+  const openSaved = (dataUrl: string) => {
+    const c = canvasRef.current; if (!c) return; const ctx = c.getContext('2d'); if (!ctx) return;
+    const img = new Image();
+    img.onload = () => {
+      // draw background then image
+      ctx.clearRect(0, 0, c.width, c.height);
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      // reset history to this state
+      const snap = ctx.getImageData(0, 0, c.width, c.height);
+      historyRef.current = [snap];
+      historyIndexRef.current = 0;
+    };
+    img.src = dataUrl;
+  };
+
+  // keyboard shortcuts intentionally removed; tutorial highlights toolbar buttons instead
 
   return (
     <div>
       <div className="mb-2 flex items-center gap-2 flex-wrap bg-slate-100/80 rounded-xl p-2">
-        <button className={`px-3 py-2 rounded-lg text-white ${!isEraser && !isBucket && shapeMode === 'none' ? 'bg-sky-700 hover:bg-sky-800' : 'bg-slate-400'}`} title="Pen" onClick={() => { setIsEraser(false); setIsBucket(false); setShapeMode('none'); }}> <PenLine size={18} /> </button>
-        <button className={`px-3 py-2 rounded-lg text-white ${isEraser ? 'bg-sky-700 hover:bg-sky-800' : 'bg-slate-400'}`} title="Eraser" onClick={() => { setIsEraser(true); setIsBucket(false); setShapeMode('none'); }}> <Eraser size={18} /> </button>
-        <button className={`px-3 py-2 rounded-lg text-white ${isBucket ? 'bg-sky-700 hover:bg-sky-800' : 'bg-slate-400'}`} title="Bucket" onClick={() => { setIsBucket(true); setIsEraser(false); setShapeMode('none'); }}> <PaintBucket size={18} /> </button>
+        <button className={`h-10 px-3 py-2 rounded-lg text-white ${!isEraser && !isBucket && shapeMode === 'none' ? 'bg-sky-700 hover:bg-sky-800' : 'bg-slate-400'} ${highlight === 'pen' ? 'ring-4 ring-amber-400 ring-offset-2 ring-offset-slate-100 animate-pulse' : ''}`} title="Pen" onClick={() => { setIsEraser(false); setIsBucket(false); setShapeMode('none'); }}> <PenLine size={18} /> </button>
+        <button className={`h-10 px-3 py-2 rounded-lg text-white ${isEraser ? 'bg-sky-700 hover:bg-sky-800' : 'bg-slate-400'} ${highlight === 'eraser' ? 'ring-4 ring-amber-400 ring-offset-2 ring-offset-slate-100 animate-pulse' : ''}`} title="Eraser" onClick={() => { setIsEraser(true); setIsBucket(false); setShapeMode('none'); }}> <Eraser size={18} /> </button>
+        <button className={`h-10 px-3 py-2 rounded-lg text-white ${isBucket ? 'bg-sky-700 hover:bg-sky-800' : 'bg-slate-400'} ${highlight === 'bucket' ? 'ring-4 ring-amber-400 ring-offset-2 ring-offset-slate-100 animate-pulse' : ''}`} title="Bucket" onClick={() => { setIsBucket(true); setIsEraser(false); setShapeMode('none'); }}> <PaintBucket size={18} /> </button>
         <div className="relative">
-          <button className={`px-3 py-2 rounded-lg ${shapeMode !== 'none' ? 'bg-sky-700 text-white hover:bg-sky-800' : 'bg-slate-400 text-white'}`} title="Shapes" onClick={() => { setShowShapes((v) => !v); setIsEraser(false); setIsBucket(false); }}>
+          <button className={`h-10 px-3 py-2 rounded-lg ${shapeMode !== 'none' ? 'bg-sky-700 text-white hover:bg-sky-800' : 'bg-slate-400 text-white'}`} title="Shapes" onClick={() => { setShowShapes((v) => !v); setIsEraser(false); setIsBucket(false); }}>
             <Shapes size={18} />
           </button>
           {showShapes && (
             <div className="absolute left-0 top-12 z-50 bg-white border border-slate-300 rounded-lg shadow p-2 min-w-[180px]">
               <div className="grid grid-cols-4 gap-2">
                 <button className={`w-9 h-9 flex items-center justify-center rounded border ${shapeMode === 'circle' ? 'bg-slate-100 border-sky-400' : 'border-slate-300'}`} onClick={() => { setShapeMode('circle'); setShowShapes(false); }} title="Circle">
-                  <div className="w-5 h-5 rounded-full border border-slate-500" />
+                  <svg viewBox="0 0 24 24" className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="8" />
+                  </svg>
                 </button>
                 <button className={`w-9 h-9 flex items-center justify-center rounded border ${shapeMode === 'square' ? 'bg-slate-100 border-sky-400' : 'border-slate-300'}`} onClick={() => { setShapeMode('square'); setShowShapes(false); }} title="Square">
-                  <div className="w-5 h-5 border border-slate-500" />
+                  <svg viewBox="0 0 24 24" className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="6" y="6" width="12" height="12" rx="0" />
+                  </svg>
                 </button>
                 <button className={`w-9 h-9 flex items-center justify-center rounded border ${shapeMode === 'diamond' ? 'bg-slate-100 border-sky-400' : 'border-slate-300'}`} onClick={() => { setShapeMode('diamond'); setShowShapes(false); }} title="Diamond">
                   <svg viewBox="0 0 24 24" className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3l7 9-7 9-7-9 7-9z"/></svg>
@@ -159,10 +193,13 @@ export default function DrawCanvas({ exposeGetImage }: DrawCanvasProps) {
             </div>
           )}
         </div>
-        <button className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white" title="Clear" onClick={() => { if (confirm('Clear the canvas?')) { clear(); } }}> <Trash2 size={18} /> </button>
-        <button className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white" title="Save" onClick={save}> <Save size={18} /> </button>
-        <button className="px-3 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-800" title="Undo" onClick={undo}> <RotateCcw size={18} /> </button>
-        <button className="px-3 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-800" title="Redo" onClick={redo}> <RotateCw size={18} /> </button>
+        <button className="h-10 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white" title="Clear" onClick={() => { if (confirm('Clear the canvas?')) { clear(); } }}> <Trash2 size={18} /> </button>
+        <button id="lb-save-btn" className={`h-10 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white inline-flex items-center gap-2 ${highlight === 'save' ? 'ring-4 ring-amber-400 ring-offset-2 ring-offset-slate-100 animate-pulse' : ''}`} title="Save" onClick={save}>
+          <Save size={18} />
+          <span>Save</span>
+        </button>
+        <button className={`h-10 px-3 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-800 ${highlight === 'undo' || highlight === 'history' ? 'ring-4 ring-amber-400 ring-offset-2 ring-offset-slate-100 animate-pulse' : ''}`} title="Undo" onClick={undo}> <RotateCcw size={18} /> </button>
+        <button className={`h-10 px-3 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-800 ${highlight === 'redo' || highlight === 'history' ? 'ring-4 ring-amber-400 ring-offset-2 ring-offset-slate-100 animate-pulse' : ''}`} title="Redo" onClick={redo}> <RotateCw size={18} /> </button>
         <div className="relative z-10 flex items-center gap-1">
           {DEFAULTS.map((c) => (
             <button
@@ -200,7 +237,7 @@ export default function DrawCanvas({ exposeGetImage }: DrawCanvasProps) {
         </div>
       </div>
       <div className="relative">
-        <canvas ref={canvasRef} width={900} height={420} className="border-2 border-slate-300 rounded-xl bg-white w-full" />
+        <canvas id="lb-canvas" ref={canvasRef} width={900} height={420} className="border-2 border-slate-300 rounded-xl bg-white w-full" />
         {cursorPos && (
           (() => {
             const canvas = canvasRef.current; if (!canvas) return null; const r = canvas.getBoundingClientRect(); const px = r.width / canvas.width; const size = (isEraser ? 14 : brush) * px; const left = cursorPos.x - size / 2; const top = cursorPos.y - size / 2;
@@ -208,13 +245,18 @@ export default function DrawCanvas({ exposeGetImage }: DrawCanvasProps) {
           })()
         )}
       </div>
+      {showSavedMsg && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center pointer-events-none">
+          <div className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm shadow-xl">Saved!</div>
+        </div>
+      )}
       {showGallery && (
         <div className="mt-3 grid grid-cols-4 gap-2 max-h-48 overflow-y-scroll">
           {saved.map((s) => (
-            <div key={s.id} className="group relative border border-slate-200 rounded overflow-hidden">
+            <div key={s.id} className="group relative border border-slate-200 rounded overflow-hidden cursor-pointer" onClick={() => openSaved(s.dataUrl)}>
               <img src={s.dataUrl} alt="Saved drawing" className="w-full h-24 object-cover" />
-              <button className="absolute top-1 right-1 hidden group-hover:flex items-center justify-center bg-white/90 border border-slate-300 text-slate-700 hover:bg-red-600 hover:text-white text-xs w-6 h-6 rounded" onClick={() => { const next = saved.filter((x) => x.id !== s.id); setSaved(next); chrome.storage?.local.set({ lb_drawings: next }); }} title="Delete">
-                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor"><path d="M9 3h6l1 2h5v2H3V5h5l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9z"/></svg>
+              <button className="absolute top-1 right-1 hidden group-hover:flex items-center justify-center bg-white/95 border border-slate-300 text-slate-700 hover:bg-red-600 hover:text-white text-[11px] px-2 h-6 rounded" onClick={(e) => { e.stopPropagation(); const next = saved.filter((x) => x.id !== s.id); setSaved(next); chrome.storage?.local.set({ lb_drawings: next }); }} title="Delete">
+                Delete
               </button>
             </div>
           ))}

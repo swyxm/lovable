@@ -73,7 +73,7 @@ module.exports = {
           from: 'manifest.json', 
           to: 'manifest.json',
           transform(content) {
-            // Update manifest paths during copy
+
             const manifest = JSON.parse(content.toString());
             return JSON.stringify(manifest, null, 2);
           }
@@ -81,6 +81,10 @@ module.exports = {
         { 
           from: 'src/content/content.css', 
           to: 'content.css' 
+        },
+        {
+          from: 'public/avatarimages',
+          to: 'avatarimages'
         }
       ]
     })
