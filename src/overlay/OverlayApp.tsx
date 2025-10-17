@@ -2,14 +2,12 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import A11yMenu, { A11yState } from './components/A11yMenu';
 import DrawCanvas from './components/DrawCanvas';
 import QuestionsFlow from './components/QuestionsFlow';
-import LoadingSpinner from './components/LoadingSpinner';
-import { PromptContext, analyzeDrawing, finalPrompt } from '../ai/llm';
-import { speakText, createAudioButton, stopCurrentAudio } from '../ai/tts';
-import { WebsiteReadinessDetector, quickReadinessCheck } from '../content/websiteReadinessDetector';
-import { extractIframeDOM } from '../content/domUtils';
 import TutorialFlow from './components/TutorialFlow';
-import CongratsOverlay from './components/CongratsOverlay';
 import AnimCycle from './components/AnimCycle';
+import { analyzeDrawing, PromptContext } from '../ai/llm';
+import { WebsiteReadinessDetector } from '../content/websiteReadinessDetector';
+import { extractIframeDOM } from '../content/domUtils';
+
 
 type OverlayAppProps = {
   onClose: () => void;
@@ -23,21 +21,6 @@ const sanitizePrompt = (raw: string): string => {
   return t.trim();
 };
 
-const generateImprovementPrompt = async (originalPrompt: string, userImprovement: string, drawingImage?: string, currentDOM?: string): Promise<string> => {
-  try {
-    const response = await fetch('http://localhost:8787/conversation/improvement', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ originalPrompt, userImprovement, drawingImage, currentDOM })
-    });
-    const data = await response.json();
-    return data.prompt || '';
-  } catch (error) {
-    console.error('Failed to generate improvement prompt:', error);
-    throw error;
-  }
-};
-
 const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
   const headerRef = useRef<HTMLDivElement | null>(null);
   const [textIdea, setTextIdea] = useState('');
@@ -46,17 +29,16 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
   const [error, setError] = useState<string | null>(null);
   const [showFinal, setShowFinal] = useState(false);
   const [finalOut, setFinalOut] = useState<string>('');
-
   const [phase, setPhase] = useState<'entry' | 'questions' | 'building' | 'improvement'>('entry');
   const [inputLocked, setInputLocked] = useState<boolean>(false);
   const [questionsCtx, setQuestionsCtx] = useState<PromptContext | null>(null);
+  const [tutorialOpen, setTutorialOpen] = useState<boolean>(false);
   const [finalContext, setFinalContext] = useState<PromptContext | null>(null);
   const [readinessDetector, setReadinessDetector] = useState<WebsiteReadinessDetector | null>(null);
+  const [improvementDetector, setImprovementDetector] = useState<WebsiteReadinessDetector | null>(null);
   const [readinessStatus, setReadinessStatus] = useState<string>('');
   const [manualOverride, setManualOverride] = useState<boolean>(false);
   const [originalPrompt, setOriginalPrompt] = useState<string>('');
-  const [improvementDetector, setImprovementDetector] = useState<WebsiteReadinessDetector | null>(null);
-  const [tutorialOpen, setTutorialOpen] = useState<boolean>(false);
   
   const [drawOpen, setDrawOpen] = useState<boolean>(true);
   const drawGetterRef = useRef<(() => string | null) | null>(null);
@@ -67,7 +49,6 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
     'Show your vision!'
   ], []);
   const drawTitle = useMemo(() => drawHeadlines[Math.floor(Math.random() * drawHeadlines.length)], [drawHeadlines]);
-  
   const submitEntry = async () => {
     const idea = (textIdea || '').trim();
     if (!idea || inputLocked) return;
@@ -114,12 +95,6 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
   useEffect(() => { onHeaderReady?.(headerRef.current); }, [onHeaderReady]);
 
   useEffect(() => {
-    if (!a11y.textToSpeech) {
-      stopCurrentAudio();
-    }
-  }, [a11y.textToSpeech, a11y.ttsVoice]);
-
-  useEffect(() => {
     const id = 'fredoka-font-link';
     if (!document.getElementById(id)) {
       const link = document.createElement('link');
@@ -135,7 +110,7 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
     const toSend = sanitizePrompt(finalOut || '');
     if (!toSend.trim()) return;
     try {
-      setOriginalPrompt(toSend); 
+      setOriginalPrompt(toSend);
       const evt = new CustomEvent('lb:pastePrompt', { detail: { prompt: toSend } });
       window.dispatchEvent(evt);
       chrome?.storage?.local?.set?.({ lb_pending_prompt: toSend }, () => {});
@@ -145,41 +120,28 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
 
   useEffect(() => {
     if (phase === 'building' && !readinessDetector && !improvementDetector && !manualOverride) {
-      // Determine if this is initial creation or improvement based on whether we have an original prompt
-      const isImprovement = !!originalPrompt;
-      
+      const isImprovement = !!originalPrompt; // if we already sent a prompt, next builds are improvements
       setReadinessStatus(isImprovement ? 'Applying improvements...' : 'Detecting website readiness...');
-      
       const detector = new WebsiteReadinessDetector();
-      
       if (isImprovement) {
         setImprovementDetector(detector);
       } else {
         setReadinessDetector(detector);
       }
-      
       detector.detectReadiness().then((result) => {
         if (result.isReady) {
-          if (isImprovement) {
-            setReadinessStatus('Improvements applied!');
-            setPhase('improvement'); // Back to improvement phase for next round
-          } else {
-            setReadinessStatus('Website is ready!');
-            setPhase('improvement');
-          }
+          setReadinessStatus(isImprovement ? 'Improvements applied!' : 'Website is ready!');
+          setPhase('improvement');
         } else {
           setReadinessStatus(`Detection completed: ${result.details || 'Not ready'}`);
         }
-        
         if (isImprovement) {
           setImprovementDetector(null);
         } else {
           setReadinessDetector(null);
         }
-      }).catch((error) => {
-        console.error('Readiness detection failed:', error);
+      }).catch(() => {
         setReadinessStatus('Detection failed');
-        
         if (isImprovement) {
           setImprovementDetector(null);
         } else {
@@ -187,7 +149,7 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
         }
       });
     }
-    
+
     if (phase !== 'building') {
       if (readinessDetector) {
         readinessDetector.stop();
@@ -199,22 +161,33 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
       }
       setReadinessStatus('');
     }
-    
+
     if (phase === 'improvement') {
       setInputLocked(false);
     }
-  }, [phase, manualOverride, readinessDetector, improvementDetector]); 
+  }, [phase, manualOverride, readinessDetector, improvementDetector, originalPrompt]);
 
   useEffect(() => {
     return () => {
-      if (readinessDetector) {
-        readinessDetector.stop();
-      }
-      if (improvementDetector) {
-        improvementDetector.stop();
-      }
+      if (readinessDetector) readinessDetector.stop();
+      if (improvementDetector) improvementDetector.stop();
     };
   }, [readinessDetector, improvementDetector]);
+
+  const generateImprovementPrompt = async (origPrompt: string, userImprovement: string, drawingImage?: string, currentDOM?: string): Promise<string> => {
+    try {
+      const response = await fetch('http://localhost:8787/conversation/improvement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ originalPrompt: origPrompt, userImprovement, drawingImage, currentDOM })
+      });
+      const data = await response.json();
+      return data.prompt || '';
+    } catch (error) {
+      console.error('Failed to generate improvement prompt:', error);
+      return '';
+    }
+  };
 
   const exitTutorial = () => {
     setShowFinal(false);
@@ -254,167 +227,152 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
             <TutorialFlow onClose={exitTutorial} />
           ) : (
             <>
-              {phase === 'entry' && (
-                <div className="rounded-xl border border-slate-200 p-5 bg-slate-50">
-                  <div className="flex gap-2 items-center">
-                    <input
-                      className={`flex-1 border-2 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 ${inputLocked ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-white text-slate-700 border-slate-300'}`}
-                      placeholder="Describe your idea..."
-                      value={textIdea}
-                      disabled={inputLocked}
-                      data-lb-primary-focus
-                      onChange={(e) => setTextIdea(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitEntry(); } }}
-                    />
-                    {!inputLocked && (
-                      <button
-                        className={`px-4 py-2 rounded-xl ${!textIdea.trim() ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-sky-600 hover:bg-sky-700 text-white'}`}
-                        disabled={!textIdea.trim()}
-                        onClick={submitEntry}
-                      >Submit</button>
-                    )}
-                  </div>
-                  {error && <p className="mt-2 text-red-600">{error}</p>}
+          {phase === 'entry' && (
+            <div className="rounded-xl border border-slate-200 p-5 bg-slate-50">
+              <div className="flex gap-2 items-center">
+                <input
+                  className={`flex-1 border-2 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 ${inputLocked ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-white text-slate-700 border-slate-300'}`}
+                  placeholder="Describe your idea..."
+                  value={textIdea}
+                  disabled={inputLocked}
+                  data-lb-primary-focus
+                  onChange={(e) => setTextIdea(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitEntry(); } }}
+                />
+                {!inputLocked && (
+                  <button
+                    className={`px-4 py-2 rounded-xl ${!textIdea.trim() ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-sky-600 hover:bg-sky-700 text-white'}`}
+                    disabled={!textIdea.trim()}
+                    onClick={submitEntry}
+                  >Submit</button>
+                )}
+              </div>
+              {error && <p className="mt-2 text-red-600">{error}</p>}
+            </div>
+          )}
+
+          {phase === 'entry' && (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50">
+              <button className="w-full flex items-center justify-between px-5 py-1.5 text-slate-700" onClick={() => setDrawOpen((v) => !v)}>
+                <span className="font-medium">{drawTitle}</span>
+                <span className="text-slate-500 text-sm">{drawOpen ? 'Hide' : 'Show'}</span>
+              </button>
+              {drawOpen && (
+                <div id="lb-canvas" className="mt-0.5 p-2 border-t border-slate-200">
+                  <DrawCanvas exposeGetImage={(g) => { drawGetterRef.current = g; }} />
                 </div>
               )}
+            </div>
+          )}
 
-              {phase === 'entry' && (
-                <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50">
-                  <button className="w-full flex items-center justify-between px-5 py-1.5 text-slate-700" onClick={() => setDrawOpen((v) => !v)}>
-                    <span className="font-medium">{drawTitle}</span>
-                    <span className="text-slate-500 text-sm">{drawOpen ? 'Hide' : 'Show'}</span>
-                  </button>
-                  {drawOpen && (
-                    <div id="lb-canvas" className="mt-0.5 p-2 border-t border-slate-200">
-                      <DrawCanvas exposeGetImage={(g) => { drawGetterRef.current = g; }} />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {phase === 'questions' && questionsCtx && (
-                <div className="mt-4">
-                  <QuestionsFlow
-                    initialContext={questionsCtx}
-                    drawingImage={drawGetterRef.current?.() || null}
-                    ttsEnabled={a11y.textToSpeech}
-                    ttsVoice={a11y.ttsVoice}
-                    onFinal={(finalText, finalCtx) => {
-                      setFinalOut(finalText);
-                      setCtx(finalCtx);
-                      setFinalContext(finalCtx);
-                      setShowFinal(true);
-                    }}
-                    onError={(msg) => setError(msg)}
-                  />
-                </div>
-              )}
-
-              {phase === 'building' && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-                  <div className="bg-white rounded-2xl p-6 border border-slate-200 max-w-md w-[90%] text-center">
-                    <h3 className="text-xl font-bold text-slate-800 mb-4">
-                      {improvementDetector ? 'Applying Improvements!' : 'Great! Your website is now being built!'}
-                    </h3>
-                    <div className="flex justify-center mb-4">
-                      <LoadingSpinner />
-                    </div>
-                    <p className="text-slate-600 mb-4">
-                      {improvementDetector ? 'Please wait while I apply your improvements...' : 'Please wait while I create your website...'}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {phase === 'improvement' && finalContext && (
-                <div className="mt-4">
-                  <div className="rounded-xl border border-slate-200 p-5 bg-slate-50">
-                    <div className="flex items-center gap-2 mb-3">
-                      <h3 className="text-lg font-bold text-slate-800">Make Improvements</h3>
-                      {createAudioButton("Make Improvements", a11y.ttsVoice)}
-                    </div>
-                    <p className="text-slate-600 mb-4">Your website is ready! Describe what you'd like to change or improve.</p>
-                    
-                    <div className="flex gap-2 mb-4">
-                      <input
-                        className="flex-1 border-2 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 bg-white text-slate-700 border-slate-300"
-                        placeholder="Describe improvements you'd like to make..."
-                        value={textIdea}
-                        onChange={(e) => setTextIdea(e.target.value)}
-                        disabled={inputLocked}
-                      />
-                      <button
-                        className={`px-6 py-2 rounded-xl ${!textIdea.trim() || inputLocked ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-sky-600 hover:bg-sky-700 text-white'}`}
-                        disabled={!textIdea.trim() || inputLocked}
-                        onClick={async () => {
-                          if (!textIdea.trim() || !originalPrompt) return;
-                          
-                          setInputLocked(true);
-                          setError(null);
-                          
-                          try {
-                            const currentDOM = extractIframeDOM();
-                            
-                            const drawUrl = drawGetterRef.current?.();
-                            
-                            const improvementPrompt = await generateImprovementPrompt(
-                              originalPrompt,
-                              textIdea,
-                              drawUrl || undefined,
-                              currentDOM || undefined
-                            );
-                            
-                            const toSend = sanitizePrompt(improvementPrompt);
-                            
-                            const evt = new CustomEvent('lb:pastePrompt', { detail: { prompt: toSend } });
-                            window.dispatchEvent(evt);
-                            chrome?.storage?.local?.set?.({ lb_pending_prompt: toSend }, () => {});
-                            
-                            setPhase('building');
-                            setTextIdea('');
-                            
-                          } catch (e) {
-                            setError('Failed to generate improvement prompt');
-                          } finally {
-                            setInputLocked(false);
-                          }
-                        }}
-                      >
-                        {inputLocked ? 'Applying...' : 'Apply'}
-                      </button>
-                    </div>
-
-                    <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50">
-                      <button className="w-full flex items-center justify-between px-4 text-slate-700" onClick={() => setDrawOpen((v) => !v)}>
-                        <span className="font-medium">Draw additional improvements</span>
-                        <span className="text-slate-500 text-sm">{drawOpen ? 'Hide' : 'Show'}</span>
-                      </button>
-                      {drawOpen && (
-                        <div className="p-4 border-t border-slate-200">
-                          <DrawCanvas exposeGetImage={(g) => { drawGetterRef.current = g; }} />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
+          {!tutorialOpen && phase === 'questions' && questionsCtx && (
+            <div className="mt-4">
+              <QuestionsFlow
+                initialContext={questionsCtx}
+                drawingImage={drawGetterRef.current?.() || null}
+                onFinal={(finalText, finalContext) => {
+                  setFinalOut(finalText);
+                  setCtx(finalContext);
+                  setFinalContext(finalContext);
+                  setShowFinal(true);
+                }}
+                onError={(msg) => setError(msg)}
+              />
+            </div>
+          )}
             </>
           )}
 
-          {showFinal && (
-            <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setShowFinal(false)}>
-              <div className="bg-white rounded-2xl p-6 border border-slate-200 max-w-md w-[90%] text-center relative overflow-hidden" onClick={(e) => e.stopPropagation()}>
-                <h3 className="text-xl font-bold text-slate-800 mb-1">Your website is being built!</h3>
-                <p className="text-slate-600">Let's see it in action!!</p>
-                <div className="text-center mt-4">
-                  <button className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl" onClick={() => setShowFinal(false)}>OK</button>
+          {phase === 'building' && (
+            <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+              <div className="bg-white rounded-2xl p-6 border border-slate-200 max-w-md w-[90%] text-center">
+                <h3 className="text-xl font-bold text-slate-800 mb-4">
+                  {improvementDetector ? 'Applying Improvements!' : 'Great! Your website is now being built!'}
+                </h3>
+                <div className="flex justify-center mb-2">
+                  <AnimCycle messages={improvementDetector ? [
+                    'Applying your improvements…',
+                    'Updating sections and styles…',
+                    'Tweaking layout to fit…',
+                    'Checking everything still works…',
+                    'Almost done…',
+                  ] : [
+                    'Casting the build spell…',
+                    'Building your website…',
+                    'Adding extra sparkles…',
+                    'Packing everything nicely…',
+                    'Almost ready…',
+                  ]} />
                 </div>
+                <p className="text-slate-600">
+                  {improvementDetector ? 'Please wait while I apply your improvements...' : 'Please wait while I create your website...'}
+                </p>
+                {readinessStatus && <p className="text-slate-500 text-sm mt-2">{readinessStatus}</p>}
               </div>
             </div>
           )}
 
-          <CongratsOverlay onClose={exitTutorial} />
+          {phase === 'improvement' && finalContext && (
+            <div className="mt-4">
+              <div className="rounded-xl border border-slate-200 p-5 bg-slate-50">
+                <h3 className="text-lg font-bold text-slate-800 mb-2">Make Improvements</h3>
+                <p className="text-slate-600 mb-3">Your website is ready! Describe what you'd like to change or improve.</p>
+                <div className="flex gap-2 mb-4">
+                  <input
+                    className="flex-1 border-2 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 bg-white text-slate-700 border-slate-300"
+                    placeholder="Describe improvements you'd like to make..."
+                    value={textIdea}
+                    onChange={(e) => setTextIdea(e.target.value)}
+                    disabled={inputLocked}
+                  />
+                  <button
+                    className={`px-6 py-2 rounded-xl ${!textIdea.trim() || inputLocked ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-sky-600 hover:bg-sky-700 text-white'}`}
+                    disabled={!textIdea.trim() || inputLocked}
+                    onClick={async () => {
+                      if (!textIdea.trim() || !originalPrompt) return;
+                      setInputLocked(true);
+                      setError(null);
+                      try {
+                        const currentDOM = extractIframeDOM();
+                        const drawUrl = drawGetterRef.current?.();
+                        const improvementPrompt = await generateImprovementPrompt(
+                          originalPrompt,
+                          textIdea,
+                          drawUrl || undefined,
+                          currentDOM || undefined
+                        );
+                        const toSend = sanitizePrompt(improvementPrompt);
+                        const evt = new CustomEvent('lb:pastePrompt', { detail: { prompt: toSend } });
+                        window.dispatchEvent(evt);
+                        chrome?.storage?.local?.set?.({ lb_pending_prompt: toSend }, () => {});
+                        setPhase('building');
+                        setTextIdea('');
+                      } catch (e) {
+                        setError('Failed to generate improvement prompt');
+                      } finally {
+                        setInputLocked(false);
+                      }
+                    }}
+                  >{inputLocked ? 'Applying...' : 'Apply'}</button>
+                </div>
+
+                <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50">
+                  <button className="w-full flex items-center justify-between px-4 text-slate-700" onClick={() => setDrawOpen((v) => !v)}>
+                    <span className="font-medium">Draw additional improvements</span>
+                    <span className="text-slate-500 text-sm">{drawOpen ? 'Hide' : 'Show'}</span>
+                  </button>
+                  {drawOpen && (
+                    <div className="p-4 border-t border-slate-200">
+                      <DrawCanvas exposeGetImage={(g) => { drawGetterRef.current = g; }} />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* TutorialFlow renders its own right-hand overlay; no extra sidebar here */}
       </div>
 
       <div className="fixed left-4 bottom-4 z-50 pointer-events-auto">

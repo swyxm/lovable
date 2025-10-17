@@ -4,7 +4,7 @@ import OptionCard from './OptionCard';
 import LayoutCard from './LayoutCard';
 import ColorCard from './ColorCard';
 import FontCard from './FontCard';
-import LoadingSpinner from './LoadingSpinner';
+import AnimCycle from './AnimCycle';
 import { speakText, createAudioButton, preloadAudio, playPreloadedAudio, stopCurrentAudio, preloadMultipleAudio } from '../../ai/tts';
 
 type QuestionsFlowProps = {
@@ -25,6 +25,8 @@ const QuestionsFlow: React.FC<QuestionsFlowProps> = ({ initialContext, drawingIm
   const [error, setError] = useState<string | null>(null);
   const [selection, setSelection] = useState<{ field: keyof PromptContext | null; value: string | null; label: string | null }>({ field: null, value: null, label: null });
   const [preloadedAudios, setPreloadedAudios] = useState<Map<string, HTMLAudioElement>>(new Map());
+  const [loadingMsgs, setLoadingMsgs] = useState<string[] | null>(null);
+  const [loadingKey, setLoadingKey] = useState<number>(0);
 
   const createQuestionText = (question: LlmQuestion) => {
     const optionsText = question.choices?.map((choice, index) => 
@@ -55,6 +57,25 @@ const QuestionsFlow: React.FC<QuestionsFlowProps> = ({ initialContext, drawingIm
     let cancelled = false;
     const boot = async () => {
       setLoading(true);
+      const isImprovement = !!(initialContext as any)?.improvement_request;
+      setLoadingMsgs(
+        isImprovement
+          ? [
+              'Reviewing your website…',
+              'Understanding your requested changes…',
+              'Finding places to improve…',
+              'Planning careful updates…',
+              'Getting tools ready…',
+            ]
+          : [
+              'Sprinkling magic dust…',
+              'Gathering awesome ideas…',
+              'Painting rainbow colors…',
+              'Choosing friendly fonts…',
+              'Warming up our build bots…',
+            ]
+      );
+      setLoadingKey((k) => k + 1);
       setError(null);
       try {
         const p = await planQuestions(initialContext, drawingImage);
@@ -135,6 +156,29 @@ const QuestionsFlow: React.FC<QuestionsFlowProps> = ({ initialContext, drawingIm
       }
     } else {
       setLoading(true);
+      const isImprovement = !!(nextCtx as any)?.improvement_request || !!(initialContext as any)?.improvement_request;
+      if (isImprovement) {
+        setLoadingMsgs([
+          'Applying your improvements…',
+          'Updating sections and styles…',
+          'Tweaking layout to fit…',
+          'Checking everything still works…',
+          'Almost done…',
+        ]);
+      } else {
+        const paletteStr = Array.isArray((nextCtx as any).palette) ? ((nextCtx as any).palette as string[]).join(',') : '';
+        const warm = /(#ef4444|red|orange|#f59e0b)/i.test(paletteStr);
+        const cool = /(#3b82f6|#22c55e|blue|green|teal)/i.test(paletteStr);
+        const vibe = warm ? 'fiery colors' : cool ? 'cool palette' : 'chosen style';
+        setLoadingMsgs([
+          'Casting the build spell…',
+          `Building your ${vibe}…`,
+          'Adding extra sparkles…',
+          'Packing everything nicely…',
+          'Almost ready…',
+        ]);
+      }
+      setLoadingKey((k) => k + 1);
       try {
         const fin = await finalPrompt(nextCtx);
         onFinal(fin.prompt || '', fin.json || nextCtx);
@@ -146,6 +190,8 @@ const QuestionsFlow: React.FC<QuestionsFlowProps> = ({ initialContext, drawingIm
       }
     }
   };
+
+  // Loading messages are rendered by AnimCycle directly now
 
   return (
     <div className="rounded-xl bg-slate-100 border border-slate-200 p-3 h-100 overflow-y-auto">
@@ -159,7 +205,9 @@ const QuestionsFlow: React.FC<QuestionsFlowProps> = ({ initialContext, drawingIm
           </div>
         </div>
       )}
-      {loading && <LoadingSpinner />}
+      {(loading || (!q && !error)) && (
+        <AnimCycle key={loadingKey} messages={loadingMsgs || ['Working…']} intervalMs={4000} />
+      )}
       {!loading && q && (
         <div>
           <div className="flex items-center gap-2 mb-3">
