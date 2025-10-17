@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import A11yMenu, { A11yState } from './components/A11yMenu';
 import DrawCanvas from './components/DrawCanvas';
+import TutorialOverlay from './components/TutorialOverlay';
 import OptionCard from './components/OptionCard';
 import ColorCard from './components/ColorCard';
 import LayoutCard from './components/LayoutCard';
@@ -29,6 +30,9 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
 
   const [inputLocked, setInputLocked] = useState<boolean>(false);
   const [selection, setSelection] = useState<{ field: keyof PromptContext | null; value: string | null; label: string | null }>({ field: null, value: null, label: null });
+
+  const [tutorialOpen, setTutorialOpen] = useState<boolean>(false);
+  const [tutorialStep, setTutorialStep] = useState<number>(1);
 
 
   const startPlan = async (nextCtx: PromptContext) => {
@@ -83,6 +87,21 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
           <span className="text-slate-500 hidden sm:inline">– Create something wonderful</span>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            title="Tutorial"
+            className="rounded-lg px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
+            onClick={() => {
+              if (tutorialOpen) {
+                setTutorialOpen(false);
+                setTutorialStep(1);
+              } else {
+                setTutorialStep(1);
+                setTutorialOpen(true);
+              }
+            }}
+          >
+            Tutorial
+          </button>
           <button title="Close" className="rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-200 text-2xl leading-none" onClick={onClose}>×</button>
         </div>
       </div>
@@ -260,6 +279,12 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
       <div className="fixed left-4 bottom-4 z-50 pointer-events-auto">
         <A11yMenu value={a11y} onChange={setA11y} />
       </div>
+      <TutorialOverlay
+        visible={tutorialOpen}
+        step={tutorialStep}
+        onNext={() => setTutorialStep((s) => Math.min(2, s + 1))}
+        text={tutorialStep === 1 ? 'Welcome! This is step one of the tutorial.' : 'Great! You are on step two. Try using the tools now.'}
+      />
     </div>
   );
 };
