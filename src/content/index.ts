@@ -1,6 +1,5 @@
 import { mountOverlay } from '../overlay';
 
-console.log('LovaBridge content script loaded');
 
 const LBA_PENDING_KEY = 'lb_pending_prompt';
 const SEND_BUTTON_ID = 'chatinput-send-message-button';

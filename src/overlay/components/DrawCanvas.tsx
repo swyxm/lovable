@@ -6,7 +6,11 @@ type SavedDrawing = { id: string; dataUrl: string; createdAt: number };
 
 const DEFAULTS = ['#ef4444', '#22c55e', '#3b82f6', '#000000'];
 
-export default function DrawCanvas() {
+type DrawCanvasProps = {
+  exposeGetImage?: (getter: () => string | null) => void;
+};
+
+export default function DrawCanvas({ exposeGetImage }: DrawCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isEraser, setIsEraser] = useState(false);
   const [isBucket, setIsBucket] = useState(false);
@@ -35,6 +39,23 @@ export default function DrawCanvas() {
     canvas.style.cursor = 'crosshair';
     const img = ctx.getImageData(0, 0, canvas.width, canvas.height); historyRef.current = [img]; historyIndexRef.current = 0;
   }, []);
+
+  useEffect(() => {
+    if (!exposeGetImage) return;
+    const getter = () => {
+      const c = canvasRef.current; if (!c) return null;
+      try { 
+        const dataUrl = c.toDataURL('image/png');
+        console.log('DrawCanvas: Generated image data URL length:', dataUrl.length);
+        console.log('DrawCanvas: Image preview:', dataUrl.substring(0, 100) + '...');
+        return dataUrl;
+      } catch (e) { 
+        console.error('DrawCanvas: Failed to generate image:', e);
+        return null; 
+      }
+    };
+    exposeGetImage(getter);
+  }, [exposeGetImage]);
 
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return; const ctx = canvas.getContext('2d'); if (!ctx) return;

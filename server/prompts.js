@@ -54,10 +54,21 @@ ABSOLUTELY CRITICAL OUTPUT RULES:
 - End immediately after the prompt content
 - The output should be the raw prompt text that can be directly used in Lovable`;
 
-export const PLAN_QUESTIONS_TEMPLATE = (baseConcept, details) => `
+export const PLAN_QUESTIONS_TEMPLATE = (baseConcept, details, drawingImage) => `
 The user gave the idea: "${baseConcept}".
 Current known details:
 ${details}
+
+${drawingImage ? `
+IMPORTANT: The user has also provided a drawing/image that should inform the planning. Analyze the visual elements in the drawing and use them to:
+- Suggest color palettes that match or complement what's shown in the drawing
+- Recommend layout patterns that align with the visual structure in the drawing
+- Consider the overall aesthetic and mood of the drawing when planning questions
+- Use the drawing as visual context to avoid asking redundant questions about things already clear from the image
+
+The drawing should help you create more informed and relevant questions that build upon what the user has already visually communicated.
+` : ''}
+
 Plan 3-6 questions to fill only the missing attributes from this set: palette, layout, font, tone, main_character, purpose.
 Avoid asking for theme_color if a palette will be collected. Do NOT ask obvious things already clear from the base idea.
 
