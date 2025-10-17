@@ -16,6 +16,7 @@ export interface PromptContext {
   layout?: string;
   palette?: string[];
   font?: string;
+  improvement_request?: string;
 }
 
 const LLM_BASE = process.env.LLM_BASE_URL || '';

@@ -4,6 +4,8 @@ import OptionCard from './OptionCard';
 import LayoutCard from './LayoutCard';
 import ColorCard from './ColorCard';
 import FontCard from './FontCard';
+import LoadingSpinner from './LoadingSpinner';
+import { speakText, createAudioButton, preloadAudio, playPreloadedAudio, stopCurrentAudio, preloadMultipleAudio } from '../../ai/tts';
 import AnimCycle from './AnimCycle';
 
 type QuestionsFlowProps = {
@@ -11,9 +13,11 @@ type QuestionsFlowProps = {
   drawingImage?: string | null;
   onFinal: (finalText: string, finalContext: PromptContext) => void;
   onError?: (message: string) => void;
+  ttsEnabled?: boolean;
+  ttsVoice?: 'Fenrir' | 'Zephyr';
 };
 
-const QuestionsFlow: React.FC<QuestionsFlowProps> = ({ initialContext, drawingImage, onFinal, onError }) => {
+const QuestionsFlow: React.FC<QuestionsFlowProps> = ({ initialContext, drawingImage, onFinal, onError, ttsEnabled = false, ttsVoice = 'Fenrir' }) => {
   const [ctx, setCtx] = useState<PromptContext>(initialContext);
   const [plan, setPlan] = useState<LlmPlan | null>(null);
   const [stepIdx, setStepIdx] = useState<number>(0);
@@ -24,6 +28,32 @@ const QuestionsFlow: React.FC<QuestionsFlowProps> = ({ initialContext, drawingIm
   const finishingRef = useRef<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [selection, setSelection] = useState<{ field: keyof PromptContext | null; value: string | null; label: string | null }>({ field: null, value: null, label: null });
+  const [preloadedAudios, setPreloadedAudios] = useState<Map<string, HTMLAudioElement>>(new Map());
+
+  const createQuestionText = (question: LlmQuestion) => {
+    const optionsText = question.choices?.map((choice, index) => 
+      `Option ${index + 1}: ${choice.label}`
+    ).join('. ') || '';
+    return `${question.question}. ${optionsText}`;
+  };
+
+  const preloadAllQuestions = async (plan: LlmPlan) => {
+    if (!ttsEnabled) return;
+    
+    try {
+      const questionTexts = plan.steps.map(step => {
+        const question = step as LlmQuestion;
+        return createQuestionText(question);
+      });
+      
+      const audioMap = await preloadMultipleAudio(questionTexts, ttsVoice);
+      setPreloadedAudios(audioMap);
+      
+      console.log(`Preloaded ${audioMap.size} audio files simultaneously`);
+    } catch (error) {
+      console.error('Error preloading audio:', error);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -44,7 +74,16 @@ const QuestionsFlow: React.FC<QuestionsFlowProps> = ({ initialContext, drawingIm
         if (p && Array.isArray(p.steps) && p.steps.length > 0) {
           setPlan(p);
           setStepIdx(0);
-          setQ(p.steps[0] as LlmQuestion);
+          const firstQuestion = p.steps[0] as LlmQuestion;
+          setQ(firstQuestion);
+          if (ttsEnabled) {
+            await preloadAllQuestions(p);
+            const firstQuestionText = createQuestionText(firstQuestion);
+            const firstAudio = preloadedAudios.get(firstQuestionText);
+            if (firstAudio) {
+              await playPreloadedAudio(firstAudio);
+            }
+          }
         } else {
           const fin = await finalPrompt(initialContext);
           if (cancelled) return;
@@ -61,8 +100,23 @@ const QuestionsFlow: React.FC<QuestionsFlowProps> = ({ initialContext, drawingIm
     return () => { cancelled = true; };
   }, [initialContext, onFinal, onError]);
 
+  useEffect(() => {
+    if (!ttsEnabled) {
+      stopCurrentAudio();
+    }
+  }, [ttsEnabled, ttsVoice]);
+
+  useEffect(() => {
+    return () => {
+      stopCurrentAudio();
+    };
+  }, []);
+
   const handleNext = async () => {
     if (!plan || !q || !selection.value || !selection.field) return;
+    
+    stopCurrentAudio();
+    
     const field = selection.field as keyof PromptContext;
     let nextCtx: PromptContext;
     if (field === 'palette') {
@@ -75,8 +129,10 @@ const QuestionsFlow: React.FC<QuestionsFlowProps> = ({ initialContext, drawingIm
     const nextIndex = stepIdx + 1;
     if (nextIndex < plan.steps.length) {
       setStepIdx(nextIndex);
-      setQ(plan.steps[nextIndex] as LlmQuestion);
+      const nextQuestion = plan.steps[nextIndex] as LlmQuestion;
+      setQ(nextQuestion);
       setSelection({ field: null, value: null, label: null });
+
       } else {
         finishingRef.current = true;
         setQ(null);
@@ -100,9 +156,31 @@ const QuestionsFlow: React.FC<QuestionsFlowProps> = ({ initialContext, drawingIm
           setError(e?.message || 'Request failed');
           onError?.(e?.message || 'Request failed');
         } finally {
-          
         }
       }
+    }
+        
+    if (ttsEnabled) {
+        const nextQuestionText = createQuestionText(nextQuestion);
+        const nextAudio = preloadedAudios.get(nextQuestionText);
+        if (nextAudio) {
+          await playPreloadedAudio(nextAudio);
+        } else {
+          const fallbackAudio = await preloadAudio(nextQuestionText, ttsVoice);
+          if (fallbackAudio) {
+            await playPreloadedAudio(fallbackAudio);
+        }else {
+      setLoading(true);
+      try {
+        const fin = await finalPrompt(nextCtx);
+        onFinal(fin.prompt || '', fin.json || nextCtx);
+      } catch (e: any) {
+        setError(e?.message || 'Request failed');
+        onError?.(e?.message || 'Request failed');
+      } finally {
+        setLoading(false);
+      }
+    }
   };
 
   const LoadingSequence: React.FC<{ messages: string[]; intervalMs?: number }> = ({ messages, intervalMs = 5000 }) => {
@@ -147,7 +225,10 @@ const QuestionsFlow: React.FC<QuestionsFlowProps> = ({ initialContext, drawingIm
       {(loading || (!q && !error)) && <LoadingSequence key={loadingKey} messages={loadingMsgs || ['Working…']} intervalMs={4000} />}
       {!loading && q && (
         <div>
-          <p className="mb-3 text-slate-700 font-medium">{q.question}</p>
+          <div className="flex items-center gap-2 mb-3">
+            <p className="text-slate-700 font-medium">{q.question}</p>
+            {createAudioButton(createQuestionText(q), ttsVoice)}
+          </div>
           <div className={`grid ${q.expected_field === 'font' ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3'} gap-3`}>
             {q.choices?.map((c) => {
               if (c.type === 'color') {

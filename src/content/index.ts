@@ -213,7 +213,7 @@ const injectOverlayStyles = () => {
       -webkit-backdrop-filter: none !important;
     }
     .lovabridge-overlay.active { opacity: 1; pointer-events: auto; }
-
+    
     .lovabridge-container {
       position: fixed;
       background: white;
