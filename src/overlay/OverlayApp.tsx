@@ -67,6 +67,7 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
     'Show your vision!'
   ], []);
   const drawTitle = useMemo(() => drawHeadlines[Math.floor(Math.random() * drawHeadlines.length)], [drawHeadlines]);
+  
   const submitEntry = async () => {
     const idea = (textIdea || '').trim();
     if (!idea || inputLocked) return;
@@ -86,7 +87,6 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
     }
   };
 
-  
   useEffect(() => {
     const handler = async (e: any) => {
       const detail = e?.detail || {};
@@ -118,6 +118,8 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
       stopCurrentAudio();
     }
   }, [a11y.textToSpeech, a11y.ttsVoice]);
+
+  useEffect(() => {
     const id = 'fredoka-font-link';
     if (!document.getElementById(id)) {
       const link = document.createElement('link');
@@ -214,15 +216,6 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
     };
   }, [readinessDetector, improvementDetector]);
 
-  const [drawOpen, setDrawOpen] = useState<boolean>(true);
-  const drawGetterRef = useRef<(() => string | null) | null>(null);
-
-  return (
-    <div className={`relative min-h-full h-full w-full bg-white text-slate-700 ${a11y.largeText ? 'lb-large-text' : ''} ${a11y.highContrast ? 'lb-high-contrast' : ''} ${a11y.boldText ? 'font-bold' : ''}`} style={{ position: 'absolute', inset: 0 }}>
-      <div ref={headerRef} id="lb-header" className="flex items-center justify-between px-4 py-2 bg-slate-100 border-b border-slate-200 select-none">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl font-bold text-sky-600">LovaBridge Buddy</span>
-          <span className="text-slate-500 hidden sm:inline">– Create something wonderful</span>
   const exitTutorial = () => {
     setShowFinal(false);
     setFinalOut('');
@@ -234,7 +227,7 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
   };
 
   return (
-    <div className={`absolute inset-0 flex flex-col bg-white text-slate-700 ${a11y.largeText ? 'lb-large-text' : ''} ${a11y.highContrast ? 'lb-high-contrast' : ''} ${a11y.reduceMotion ? 'lb-reduce-motion' : ''} ${a11y.boldText ? 'font-bold' : ''}`}>
+    <div className={`absolute inset-0 flex flex-col bg-white text-slate-700 ${a11y.largeText ? 'lb-large-text' : ''} ${a11y.highContrast ? 'lb-high-contrast' : ''} ${a11y.boldText ? 'font-bold' : ''}`}>
       <div ref={headerRef} id="lb-header" className="relative flex items-center justify-between px-4 py-3 bg-slate-100 border-b border-slate-200 select-none">
         <div className="flex-1" />
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -255,250 +248,164 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
         </div>
       </div>
 
-      <div className="lb-scroll h-[calc(100%-48px)] overflow-auto p-4 pb-8 bg-white">
-        {phase === 'entry' && (
-          <div className="rounded-xl border border-slate-200 p-5 bg-slate-50">
-            <div className="flex items-center gap-2 mb-3">
-              <h3 className="text-lg font-bold text-slate-800">Describe your idea</h3>
-              {createAudioButton("Describe your idea", a11y.ttsVoice)}
-            </div>
-            <div className="flex gap-2">
-              <input
-                className={`flex-1 border-2 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 ${inputLocked ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-white text-slate-700 border-slate-300'}`}
-                placeholder="Describe your idea..."
-                value={textIdea}
-                disabled={inputLocked}
-                data-lb-primary-focus
-                onChange={(e) => setTextIdea(e.target.value)}
-              />
-            </div>
-            {error && <p className="mt-2 text-red-600">{error}</p>}
-          </div>
-        )}
-
-        {phase === 'entry' && (
-          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50">
-            <button className="w-full flex items-center justify-between px-4 text-slate-700" onClick={() => setDrawOpen((v) => !v)}>
-              <div className="flex items-center gap-2">
-                <span className="font-medium">Draw your idea!</span>
-                {createAudioButton("Draw your idea!", a11y.ttsVoice)}
-              </div>
-              <span className="text-slate-500 text-sm">{drawOpen ? 'Hide' : 'Show'}</span>
-            </button>
-            {drawOpen && (
-              <div className="p-4 border-t border-slate-200">
-                <DrawCanvas exposeGetImage={(g) => { drawGetterRef.current = g; }} />
-              </div>
-            )}
-          </div>
-        )}
-
-        {phase === 'entry' && !inputLocked && (
-          <div className="fixed bottom-7 left-1/2 -translate-x-1/2 z-50">
-            <button
-              className={`px-8 py-2 rounded-full shadow-lg ${!textIdea.trim() ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-sky-600 hover:bg-sky-700 text-white'}`}
-              disabled={!textIdea.trim()}
-              onClick={async () => {
-                if (!textIdea.trim()) return;
-                let nextCtx: PromptContext = { ...ctx, base_idea: textIdea };
-                const drawUrl = drawGetterRef.current?.();
-                if (drawUrl) {
-                  const img = new Image();
-                  img.onerror = () => console.error('OverlayApp: Drawing image is invalid!');
-                  img.src = drawUrl;
-                  
-                  try {
-                    const drawCtx = await analyzeDrawing(drawUrl);
-                    nextCtx = { ...nextCtx, ...drawCtx };
-                  } catch (e) {
-                  }
-                }
-                setCtx(nextCtx);
-                setQuestionsCtx(nextCtx);
-                setInputLocked(true);
-                setPhase('questions');
-              }}
-            >Submit</button>
-          </div>
-        )}
-
-        {phase === 'questions' && questionsCtx && (
-          <div className="mt-4">
-            <QuestionsFlow
-              initialContext={questionsCtx}
-              drawingImage={drawGetterRef.current?.() || null}
-              ttsEnabled={a11y.textToSpeech}
-              ttsVoice={a11y.ttsVoice}
-              onFinal={(finalText, finalCtx) => {
-                setFinalOut(finalText);
-                setCtx(finalCtx);
-                setFinalContext(finalCtx);
-                setShowFinal(true);
-              }}
-              onError={(msg) => setError(msg)}
-            />
-          </div>
-        )}
-
-        {phase === 'building' && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl p-6 border border-slate-200 max-w-md w-[90%] text-center">
-              <h3 className="text-xl font-bold text-slate-800 mb-4">
-                {improvementDetector ? 'Applying Improvements!' : 'Great! Your website is now being built!'}
-              </h3>
-              <div className="flex justify-center mb-4">
-                <LoadingSpinner />
-              </div>
-              <p className="text-slate-600 mb-4">
-                {improvementDetector ? 'Please wait while I apply your improvements...' : 'Please wait while I create your website...'}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {phase === 'improvement' && finalContext && (
-          <div className="mt-4">
-            <div className="rounded-xl border border-slate-200 p-5 bg-slate-50">
-              <div className="flex items-center gap-2 mb-3">
-                <h3 className="text-lg font-bold text-slate-800">Make Improvements</h3>
-                {createAudioButton("Make Improvements", a11y.ttsVoice)}
-              </div>
-              <p className="text-slate-600 mb-4">Your website is ready! Describe what you'd like to change or improve.</p>
-              
-              <div className="flex gap-2 mb-4">
-                <input
-                  className="flex-1 border-2 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 bg-white text-slate-700 border-slate-300"
-                  placeholder="Describe improvements you'd like to make..."
-                  value={textIdea}
-                  onChange={(e) => setTextIdea(e.target.value)}
-                  disabled={inputLocked}
-                />
-                <button
-                  className={`px-6 py-2 rounded-xl ${!textIdea.trim() || inputLocked ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-sky-600 hover:bg-sky-700 text-white'}`}
-                  disabled={!textIdea.trim() || inputLocked}
-                  onClick={async () => {
-                    if (!textIdea.trim() || !originalPrompt) return;
-                    
-                    setInputLocked(true);
-                    setError(null);
-                    
-                    try {
-                      const currentDOM = extractIframeDOM();
-                      
-                      const drawUrl = drawGetterRef.current?.();
-                      
-                      const improvementPrompt = await generateImprovementPrompt(
-                        originalPrompt,
-                        textIdea,
-                        drawUrl || undefined,
-                        currentDOM || undefined
-                      );
-                      
-                      const toSend = sanitizePrompt(improvementPrompt);
-                      
-                      const evt = new CustomEvent('lb:pastePrompt', { detail: { prompt: toSend } });
-                      window.dispatchEvent(evt);
-                      chrome?.storage?.local?.set?.({ lb_pending_prompt: toSend }, () => {});
-                      
-                      setPhase('building');
-                      setTextIdea('');
-                      
-                    } catch (e) {
-                      setError('Failed to generate improvement prompt');
-                    } finally {
-                      setInputLocked(false);
-                    }
-                  }}
-                >
-                  {inputLocked ? 'Applying...' : 'Apply'}
-                </button>
-              </div>
-
-              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50">
-                <button className="w-full flex items-center justify-between px-4 text-slate-700" onClick={() => setDrawOpen((v) => !v)}>
-                  <span className="font-medium">Draw additional improvements</span>
-                  <span className="text-slate-500 text-sm">{drawOpen ? 'Hide' : 'Show'}</span>
-                </button>
-                {drawOpen && (
-                  <div className="p-4 border-t border-slate-200">
-                    <DrawCanvas exposeGetImage={(g) => { drawGetterRef.current = g; }} />
-                  </div>
-                )}
       <div className="flex-1 min-h-0 flex">
         <div className="flex-1 min-w-0 overflow-auto p-4 pb-8 bg-white">
           {tutorialOpen ? (
             <TutorialFlow onClose={exitTutorial} />
           ) : (
             <>
-          {phase === 'entry' && (
-            <div className="rounded-xl border border-slate-200 p-5 bg-slate-50">
-              <div className="flex gap-2 items-center">
-                <input
-                  className={`flex-1 border-2 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 ${inputLocked ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-white text-slate-700 border-slate-300'}`}
-                  placeholder="Describe your idea..."
-                  value={textIdea}
-                  disabled={inputLocked}
-                  data-lb-primary-focus
-                  onChange={(e) => setTextIdea(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitEntry(); } }}
-                />
-                {!inputLocked && (
-                  <button
-                    className={`px-4 py-2 rounded-xl ${!textIdea.trim() ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-sky-600 hover:bg-sky-700 text-white'}`}
-                    disabled={!textIdea.trim()}
-                    onClick={submitEntry}
-                  >Submit</button>
-                )}
-              </div>
-              {error && <p className="mt-2 text-red-600">{error}</p>}
-            </div>
-          )}
-
-          {phase === 'entry' && (
-            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50">
-              <button className="w-full flex items-center justify-between px-5 py-1.5 text-slate-700" onClick={() => setDrawOpen((v) => !v)}>
-                <span className="font-medium">{drawTitle}</span>
-                <span className="text-slate-500 text-sm">{drawOpen ? 'Hide' : 'Show'}</span>
-              </button>
-              {drawOpen && (
-                <div id="lb-canvas" className="mt-0.5 p-2 border-t border-slate-200">
-                  <DrawCanvas exposeGetImage={(g) => { drawGetterRef.current = g; }} />
+              {phase === 'entry' && (
+                <div className="rounded-xl border border-slate-200 p-5 bg-slate-50">
+                  <div className="flex gap-2 items-center">
+                    <input
+                      className={`flex-1 border-2 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 ${inputLocked ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-white text-slate-700 border-slate-300'}`}
+                      placeholder="Describe your idea..."
+                      value={textIdea}
+                      disabled={inputLocked}
+                      data-lb-primary-focus
+                      onChange={(e) => setTextIdea(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitEntry(); } }}
+                    />
+                    {!inputLocked && (
+                      <button
+                        className={`px-4 py-2 rounded-xl ${!textIdea.trim() ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-sky-600 hover:bg-sky-700 text-white'}`}
+                        disabled={!textIdea.trim()}
+                        onClick={submitEntry}
+                      >Submit</button>
+                    )}
+                  </div>
+                  {error && <p className="mt-2 text-red-600">{error}</p>}
                 </div>
               )}
-            </div>
-          )}
 
-          {!tutorialOpen && phase === 'questions' && questionsCtx && (
-            <div className="mt-4">
-              <QuestionsFlow
-                initialContext={questionsCtx}
-                drawingImage={drawGetterRef.current?.() || null}
-                onFinal={(finalText, finalContext) => {
-                  setFinalOut(finalText);
-                  setCtx(finalContext);
-                  setShowFinal(true);
-                  const wasTutorial = tutorialOpen;
-                  setQuestionsCtx(null);
-                  setInputLocked(false);
-                  setPhase('entry');
-                  setTutorialOpen(false);
-                  setTimeout(() => {
-                    const evt = new CustomEvent('lb:showCongrats', { detail: { tutorial: wasTutorial } });
-                    window.dispatchEvent(evt);
-                  }, 50);
-                }}
-                onError={(msg) => setError(msg)}
-              />
-            </div>
-          )}
+              {phase === 'entry' && (
+                <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50">
+                  <button className="w-full flex items-center justify-between px-5 py-1.5 text-slate-700" onClick={() => setDrawOpen((v) => !v)}>
+                    <span className="font-medium">{drawTitle}</span>
+                    <span className="text-slate-500 text-sm">{drawOpen ? 'Hide' : 'Show'}</span>
+                  </button>
+                  {drawOpen && (
+                    <div id="lb-canvas" className="mt-0.5 p-2 border-t border-slate-200">
+                      <DrawCanvas exposeGetImage={(g) => { drawGetterRef.current = g; }} />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {phase === 'questions' && questionsCtx && (
+                <div className="mt-4">
+                  <QuestionsFlow
+                    initialContext={questionsCtx}
+                    drawingImage={drawGetterRef.current?.() || null}
+                    ttsEnabled={a11y.textToSpeech}
+                    ttsVoice={a11y.ttsVoice}
+                    onFinal={(finalText, finalCtx) => {
+                      setFinalOut(finalText);
+                      setCtx(finalCtx);
+                      setFinalContext(finalCtx);
+                      setShowFinal(true);
+                    }}
+                    onError={(msg) => setError(msg)}
+                  />
+                </div>
+              )}
+
+              {phase === 'building' && (
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+                  <div className="bg-white rounded-2xl p-6 border border-slate-200 max-w-md w-[90%] text-center">
+                    <h3 className="text-xl font-bold text-slate-800 mb-4">
+                      {improvementDetector ? 'Applying Improvements!' : 'Great! Your website is now being built!'}
+                    </h3>
+                    <div className="flex justify-center mb-4">
+                      <LoadingSpinner />
+                    </div>
+                    <p className="text-slate-600 mb-4">
+                      {improvementDetector ? 'Please wait while I apply your improvements...' : 'Please wait while I create your website...'}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {phase === 'improvement' && finalContext && (
+                <div className="mt-4">
+                  <div className="rounded-xl border border-slate-200 p-5 bg-slate-50">
+                    <div className="flex items-center gap-2 mb-3">
+                      <h3 className="text-lg font-bold text-slate-800">Make Improvements</h3>
+                      {createAudioButton("Make Improvements", a11y.ttsVoice)}
+                    </div>
+                    <p className="text-slate-600 mb-4">Your website is ready! Describe what you'd like to change or improve.</p>
+                    
+                    <div className="flex gap-2 mb-4">
+                      <input
+                        className="flex-1 border-2 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 bg-white text-slate-700 border-slate-300"
+                        placeholder="Describe improvements you'd like to make..."
+                        value={textIdea}
+                        onChange={(e) => setTextIdea(e.target.value)}
+                        disabled={inputLocked}
+                      />
+                      <button
+                        className={`px-6 py-2 rounded-xl ${!textIdea.trim() || inputLocked ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-sky-600 hover:bg-sky-700 text-white'}`}
+                        disabled={!textIdea.trim() || inputLocked}
+                        onClick={async () => {
+                          if (!textIdea.trim() || !originalPrompt) return;
+                          
+                          setInputLocked(true);
+                          setError(null);
+                          
+                          try {
+                            const currentDOM = extractIframeDOM();
+                            
+                            const drawUrl = drawGetterRef.current?.();
+                            
+                            const improvementPrompt = await generateImprovementPrompt(
+                              originalPrompt,
+                              textIdea,
+                              drawUrl || undefined,
+                              currentDOM || undefined
+                            );
+                            
+                            const toSend = sanitizePrompt(improvementPrompt);
+                            
+                            const evt = new CustomEvent('lb:pastePrompt', { detail: { prompt: toSend } });
+                            window.dispatchEvent(evt);
+                            chrome?.storage?.local?.set?.({ lb_pending_prompt: toSend }, () => {});
+                            
+                            setPhase('building');
+                            setTextIdea('');
+                            
+                          } catch (e) {
+                            setError('Failed to generate improvement prompt');
+                          } finally {
+                            setInputLocked(false);
+                          }
+                        }}
+                      >
+                        {inputLocked ? 'Applying...' : 'Apply'}
+                      </button>
+                    </div>
+
+                    <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50">
+                      <button className="w-full flex items-center justify-between px-4 text-slate-700" onClick={() => setDrawOpen((v) => !v)}>
+                        <span className="font-medium">Draw additional improvements</span>
+                        <span className="text-slate-500 text-sm">{drawOpen ? 'Hide' : 'Show'}</span>
+                      </button>
+                      {drawOpen && (
+                        <div className="p-4 border-t border-slate-200">
+                          <DrawCanvas exposeGetImage={(g) => { drawGetterRef.current = g; }} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           )}
 
           {showFinal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setShowFinal(false)}>
-          <div className="bg-white rounded-2xl p-6 border border-slate-200 max-w-md w-[90%] text-center relative overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setShowFinal(false)}>
+              <div className="bg-white rounded-2xl p-6 border border-slate-200 max-w-md w-[90%] text-center relative overflow-hidden" onClick={(e) => e.stopPropagation()}>
                 <h3 className="text-xl font-bold text-slate-800 mb-1">Your website is being built!</h3>
-                <p className="text-slate-600">Let’s see it in action!!</p>
+                <p className="text-slate-600">Let's see it in action!!</p>
                 <div className="text-center mt-4">
                   <button className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl" onClick={() => setShowFinal(false)}>OK</button>
                 </div>
@@ -506,9 +413,8 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
             </div>
           )}
 
-      <CongratsOverlay onClose={exitTutorial} />
+          <CongratsOverlay onClose={exitTutorial} />
         </div>
-
       </div>
 
       <div className="fixed left-4 bottom-4 z-50 pointer-events-auto">
