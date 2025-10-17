@@ -56,17 +56,21 @@ ABSOLUTELY CRITICAL OUTPUT RULES:
 
 export const PLAN_QUESTIONS_TEMPLATE = (baseConcept, details, drawingImage) => `
 The user gave the idea: "${baseConcept}".
-Current known details:
+Current known details (Primary considerations:):
 ${details}
 
 ${drawingImage ? `
-IMPORTANT: The user has also provided a drawing/image that should inform the planning. Analyze the visual elements in the drawing and use them to:
+IMPORTANT: The user MAY have provided a drawing/image. However, you must prioritize the text details above over any visual elements. Only if the drawing contains meaningful, non-blank content that adds NEW information not already covered in the text details, then you may consider it. 
+
+If the drawing appears to be blank, white, or contains minimal/meaningless content, IGNORE it completely and focus solely on the text details provided.
+
+When the drawing IS meaningful and adds value:
 - Suggest color palettes that match or complement what's shown in the drawing
-- Recommend layout patterns that align with the visual structure in the drawing
+- Recommend layout patterns that align with the visual structure in the drawing  
 - Consider the overall aesthetic and mood of the drawing when planning questions
 - Use the drawing as visual context to avoid asking redundant questions about things already clear from the image
 
-The drawing should help you create more informed and relevant questions that build upon what the user has already visually communicated.
+CRITICAL: The text details in ${details} are the PRIMARY source of truth. The drawing should only supplement, never override or contradict what's already specified in the text.
 ` : ''}
 
 Plan 3-6 questions to fill only the missing attributes from this set: palette, layout, font, tone, main_character, purpose.

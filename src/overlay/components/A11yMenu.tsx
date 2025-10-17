@@ -4,8 +4,9 @@ import { Accessibility } from 'lucide-react';
 export interface A11yState {
   largeText: boolean;
   highContrast: boolean;
-  reduceMotion: boolean;
   boldText: boolean;
+  textToSpeech: boolean;
+  ttsVoice: 'Fenrir' | 'Zephyr';
 }
 
 interface Props {
@@ -46,17 +47,29 @@ export default function A11yMenu({ value, onChange }: Props) {
           High contrast
         </button>
         <button
-          className={`w-36 px-3 py-1 rounded-full border text-sm font-medium whitespace-nowrap ${value.reduceMotion ? 'bg-sky-500 text-white border-sky-500' : 'bg-white/80 text-slate-700 border-slate-300 hover:border-sky-400'}`}
-          onClick={() => toggle('reduceMotion')}
-        >
-          Reduce motion
-        </button>
-        <button
-          className={`px-3 py-1 rounded-full border text-sm ${value.boldText ? 'bg-sky-500 text-white border-sky-500' : 'bg-white text-slate-700 border-slate-300 hover:border-sky-400'}`}
+          className={`px-3 py-1 rounded-full border text-sm ${value.boldText ? 'bg-sky-500 text-white border-sky-500' : 'bg-white/80 text-slate-700 border-slate-300 hover:border-sky-400'}`}
           onClick={() => toggle('boldText')}
         >
           Bold
         </button>
+        <div className="flex items-center gap-1">
+          <button
+            className={`px-3 py-1 rounded-full border text-sm ${value.textToSpeech ? 'bg-sky-500 text-white border-sky-500' : 'bg-white/80 text-slate-700 border-slate-300 hover:border-sky-400'}`}
+            onClick={() => toggle('textToSpeech')}
+          >
+            🔊 TTS
+          </button>
+          {value.textToSpeech && (
+            <select
+              className="px-2 py-1 rounded border text-xs bg-white/80 text-slate-700 border-slate-300 hover:border-sky-400 focus:border-sky-500 focus:outline-none"
+              value={value.ttsVoice}
+              onChange={(e) => onChange({ ...value, ttsVoice: e.target.value as 'Fenrir' | 'Zephyr' })}
+            >
+              <option value="Fenrir">Fenrir (Male)</option>
+              <option value="Zephyr">Zephyr (Female)</option>
+            </select>
+          )}
+        </div>
       </div>
     </div>
   );

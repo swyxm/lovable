@@ -4,6 +4,8 @@ import DrawCanvas from './components/DrawCanvas';
 import QuestionsFlow from './components/QuestionsFlow';
 import LoadingSpinner from './components/LoadingSpinner';
 import { PromptContext, analyzeDrawing, finalPrompt } from '../ai/llm';
+import { speakText, createAudioButton, stopCurrentAudio } from '../ai/tts';
+import { WebsiteReadinessDetector, quickReadinessCheck } from '../content/websiteReadinessDetector';
 
 
 type OverlayAppProps = {
@@ -21,7 +23,7 @@ const sanitizePrompt = (raw: string): string => {
 const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
   const headerRef = useRef<HTMLDivElement | null>(null);
   const [textIdea, setTextIdea] = useState('');
-  const [a11y, setA11y] = useState<A11yState>({ largeText: false, highContrast: false, reduceMotion: false, boldText: false });
+  const [a11y, setA11y] = useState<A11yState>({ largeText: false, highContrast: false, boldText: false, textToSpeech: false, ttsVoice: 'Fenrir' });
   const [ctx, setCtx] = useState<PromptContext>({});
   const [error, setError] = useState<string | null>(null);
   const [showFinal, setShowFinal] = useState(false);
@@ -31,8 +33,17 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
   const [inputLocked, setInputLocked] = useState<boolean>(false);
   const [questionsCtx, setQuestionsCtx] = useState<PromptContext | null>(null);
   const [finalContext, setFinalContext] = useState<PromptContext | null>(null);
+  const [readinessDetector, setReadinessDetector] = useState<WebsiteReadinessDetector | null>(null);
+  const [readinessStatus, setReadinessStatus] = useState<string>('');
+  const [manualOverride, setManualOverride] = useState<boolean>(false);
 
   useEffect(() => { onHeaderReady?.(headerRef.current); }, [onHeaderReady]);
+
+  useEffect(() => {
+    if (!a11y.textToSpeech) {
+      stopCurrentAudio();
+    }
+  }, [a11y.textToSpeech, a11y.ttsVoice]);
 
   useEffect(() => {
     if (!showFinal) return;
@@ -46,11 +57,50 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
     } catch {}
   }, [showFinal, finalOut]);
 
+  useEffect(() => {
+    if (phase === 'building' && !readinessDetector && !manualOverride) {
+      setReadinessStatus('Detecting website readiness...');
+      
+      const detector = new WebsiteReadinessDetector();
+      
+      setReadinessDetector(detector);
+      
+      detector.detectReadiness().then((result) => {
+        console.log('🎯 Detection result:', result);
+        if (result.isReady) {
+          setReadinessStatus('Website is ready!');
+          setPhase('improvement');
+        } else {
+          setReadinessStatus(`Detection completed: ${result.details || 'Not ready'}`);
+        }
+        setReadinessDetector(null);
+      }).catch((error) => {
+        console.error('Readiness detection failed:', error);
+        setReadinessStatus('Detection failed');
+        setReadinessDetector(null);
+      });
+    }
+    
+    if (phase !== 'building' && readinessDetector) {
+      readinessDetector.stop();
+      setReadinessDetector(null);
+      setReadinessStatus('');
+    }
+  }, [phase, manualOverride]); 
+
+  useEffect(() => {
+    return () => {
+      if (readinessDetector) {
+        readinessDetector.stop();
+      }
+    };
+  }, [readinessDetector]);
+
   const [drawOpen, setDrawOpen] = useState<boolean>(true);
   const drawGetterRef = useRef<(() => string | null) | null>(null);
 
   return (
-    <div className={`relative min-h-full h-full w-full bg-white text-slate-700 ${a11y.largeText ? 'lb-large-text' : ''} ${a11y.highContrast ? 'lb-high-contrast' : ''} ${a11y.reduceMotion ? 'lb-reduce-motion' : ''} ${a11y.boldText ? 'font-bold' : ''}`} style={{ position: 'absolute', inset: 0 }}>
+    <div className={`relative min-h-full h-full w-full bg-white text-slate-700 ${a11y.largeText ? 'lb-large-text' : ''} ${a11y.highContrast ? 'lb-high-contrast' : ''} ${a11y.boldText ? 'font-bold' : ''}`} style={{ position: 'absolute', inset: 0 }}>
       <div ref={headerRef} id="lb-header" className="flex items-center justify-between px-4 py-2 bg-slate-100 border-b border-slate-200 select-none">
         <div className="flex items-center gap-2">
           <span className="text-2xl font-bold text-sky-600">LovaBridge Buddy</span>
@@ -64,6 +114,10 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
       <div className="lb-scroll h-[calc(100%-48px)] overflow-auto p-4 pb-8 bg-white">
         {phase === 'entry' && (
           <div className="rounded-xl border border-slate-200 p-5 bg-slate-50">
+            <div className="flex items-center gap-2 mb-3">
+              <h3 className="text-lg font-bold text-slate-800">Describe your idea</h3>
+              {createAudioButton("Describe your idea", a11y.ttsVoice)}
+            </div>
             <div className="flex gap-2">
               <input
                 className={`flex-1 border-2 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 ${inputLocked ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-white text-slate-700 border-slate-300'}`}
@@ -81,7 +135,10 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
         {phase === 'entry' && (
           <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50">
             <button className="w-full flex items-center justify-between px-4 text-slate-700" onClick={() => setDrawOpen((v) => !v)}>
-              <span className="font-medium">Draw your idea!</span>
+              <div className="flex items-center gap-2">
+                <span className="font-medium">Draw your idea!</span>
+                {createAudioButton("Draw your idea!", a11y.ttsVoice)}
+              </div>
               <span className="text-slate-500 text-sm">{drawOpen ? 'Hide' : 'Show'}</span>
             </button>
             {drawOpen && (
@@ -126,6 +183,8 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
             <QuestionsFlow
               initialContext={questionsCtx}
               drawingImage={drawGetterRef.current?.() || null}
+              ttsEnabled={a11y.textToSpeech}
+              ttsVoice={a11y.ttsVoice}
               onFinal={(finalText, finalCtx) => {
                 setFinalOut(finalText);
                 setCtx(finalCtx);
@@ -140,17 +199,38 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
         {phase === 'building' && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
             <div className="bg-white rounded-2xl p-6 border border-slate-200 max-w-md w-[90%] text-center">
-              <h3 className="text-xl font-bold text-slate-800 mb-4">Your website is being built!</h3>
+              <h3 className="text-xl font-bold text-slate-800 mb-4">Great! Your website is now being built!</h3>
               <div className="flex justify-center mb-4">
                 <LoadingSpinner />
               </div>
               <p className="text-slate-600 mb-4">Please wait while we create your website...</p>
-              <div className="text-center">
+              
+              {readinessStatus && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">{readinessStatus}</p>
+                </div>
+              )}
+              
+              <div className="flex gap-2 justify-center">
                 <button 
                   className="bg-slate-300 hover:bg-slate-400 text-slate-800 px-4 py-2 rounded-xl" 
                   onClick={() => setPhase('entry')}
                 >
                   Start Over
+                </button>
+                
+                <button 
+                  className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-xl" 
+                  onClick={() => {
+                    setManualOverride(true);
+                    if (readinessDetector) {
+                      readinessDetector.stop();
+                      setReadinessDetector(null);
+                    }
+                    setPhase('improvement');
+                  }}
+                >
+                  Website is Ready
                 </button>
               </div>
             </div>
@@ -160,8 +240,30 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
         {phase === 'improvement' && finalContext && (
           <div className="mt-4">
             <div className="rounded-xl border border-slate-200 p-5 bg-slate-50">
-              <h3 className="text-lg font-bold text-slate-800 mb-3">Improve Your Website</h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold text-slate-800">Improve Your Website</h3>
+                <button
+                  className="text-sm bg-green-100 hover:bg-green-200 text-green-800 px-3 py-1 rounded-lg"
+                  onClick={() => {
+                    const result = quickReadinessCheck();
+                    if (result.isReady) {
+                      setReadinessStatus(`✅ Website is ready!`);
+                    } else {
+                      setReadinessStatus(`⚠️ Website may not be ready`);
+                    }
+                    setTimeout(() => setReadinessStatus(''), 3000);
+                  }}
+                >
+                  Check Status
+                </button>
+              </div>
               <p className="text-slate-600 mb-4">Your website is ready! Now you can make improvements and refinements.</p>
+              
+              {readinessStatus && (
+                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-800">{readinessStatus}</p>
+                </div>
+              )}
               
               <div className="flex gap-2 mb-4">
                 <input
