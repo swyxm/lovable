@@ -200,6 +200,12 @@ app.post('/conversation/plan', async (req, res) => {
     const userParts = [{ text: prompt }];
     if (drawingImage) {
       const base64Data = drawingImage.replace(/^data:image\/[a-z]+;base64,/, '');
+      userParts.push({
+        inlineData: {
+          mimeType: 'image/png',
+          data: base64Data
+        }
+      });
     }
     const data = await callLLM(`/models/${LLM_MODEL}:generateContent`, {
       systemInstruction: { role: 'system', parts: [{ text: SYSTEM_TEMPLATE }] },

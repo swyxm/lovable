@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import A11yMenu, { A11yState } from './components/A11yMenu';
 import DrawCanvas from './components/DrawCanvas';
 import QuestionsFlow from './components/QuestionsFlow';
-import { PromptContext, analyzeDrawing } from '../ai/llm';
+import LoadingSpinner from './components/LoadingSpinner';
+import { PromptContext, analyzeDrawing, finalPrompt } from '../ai/llm';
 
 
 type OverlayAppProps = {
@@ -26,9 +27,10 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
   const [showFinal, setShowFinal] = useState(false);
   const [finalOut, setFinalOut] = useState<string>('');
 
-  const [phase, setPhase] = useState<'entry' | 'questions'>('entry');
+  const [phase, setPhase] = useState<'entry' | 'questions' | 'building' | 'improvement'>('entry');
   const [inputLocked, setInputLocked] = useState<boolean>(false);
   const [questionsCtx, setQuestionsCtx] = useState<PromptContext | null>(null);
+  const [finalContext, setFinalContext] = useState<PromptContext | null>(null);
 
   useEffect(() => { onHeaderReady?.(headerRef.current); }, [onHeaderReady]);
 
@@ -40,6 +42,7 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
       const evt = new CustomEvent('lb:pastePrompt', { detail: { prompt: toSend } });
       window.dispatchEvent(evt);
       chrome?.storage?.local?.set?.({ lb_pending_prompt: toSend }, () => {});
+      setPhase('building');
     } catch {}
   }, [showFinal, finalOut]);
 
@@ -123,9 +126,10 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
             <QuestionsFlow
               initialContext={questionsCtx}
               drawingImage={drawGetterRef.current?.() || null}
-              onFinal={(finalText, finalContext) => {
+              onFinal={(finalText, finalCtx) => {
                 setFinalOut(finalText);
-                setCtx(finalContext);
+                setCtx(finalCtx);
+                setFinalContext(finalCtx);
                 setShowFinal(true);
               }}
               onError={(msg) => setError(msg)}
@@ -133,13 +137,81 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
           </div>
         )}
 
-        {showFinal && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setShowFinal(false)}>
-            <div className="bg-white rounded-2xl p-6 border border-slate-200 max-w-md w-[90%] text-center" onClick={(e) => e.stopPropagation()}>
-              <h3 className="text-xl font-bold text-slate-800 mb-1">Your website is being built!</h3>
-              <p className="text-slate-600">Let’s see it in action!!</p>
+        {phase === 'building' && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl p-6 border border-slate-200 max-w-md w-[90%] text-center">
+              <h3 className="text-xl font-bold text-slate-800 mb-4">Your website is being built!</h3>
+              <div className="flex justify-center mb-4">
+                <LoadingSpinner />
+              </div>
+              <p className="text-slate-600 mb-4">Please wait while we create your website...</p>
+              <div className="text-center">
+                <button 
+                  className="bg-slate-300 hover:bg-slate-400 text-slate-800 px-4 py-2 rounded-xl" 
+                  onClick={() => setPhase('entry')}
+                >
+                  Start Over
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {phase === 'improvement' && finalContext && (
+          <div className="mt-4">
+            <div className="rounded-xl border border-slate-200 p-5 bg-slate-50">
+              <h3 className="text-lg font-bold text-slate-800 mb-3">Improve Your Website</h3>
+              <p className="text-slate-600 mb-4">Your website is ready! Now you can make improvements and refinements.</p>
+              
+              <div className="flex gap-2 mb-4">
+                <input
+                  className="flex-1 border-2 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 bg-white text-slate-700 border-slate-300"
+                  placeholder="Describe improvements you'd like to make..."
+                  value={textIdea}
+                  onChange={(e) => setTextIdea(e.target.value)}
+                />
+              </div>
+
+              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50">
+                <button className="w-full flex items-center justify-between px-4 text-slate-700" onClick={() => setDrawOpen((v) => !v)}>
+                  <span className="font-medium">Draw additional improvements</span>
+                  <span className="text-slate-500 text-sm">{drawOpen ? 'Hide' : 'Show'}</span>
+                </button>
+                {drawOpen && (
+                  <div className="p-4 border-t border-slate-200">
+                    <DrawCanvas exposeGetImage={(g) => { drawGetterRef.current = g; }} />
+                  </div>
+                )}
+              </div>
+
               <div className="text-center mt-4">
-                <button className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl" onClick={() => setShowFinal(false)}>OK</button>
+                <button
+                  className={`px-6 py-2 rounded-xl ${!textIdea.trim() ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-sky-600 hover:bg-sky-700 text-white'}`}
+                  disabled={!textIdea.trim()}
+                  onClick={async () => {
+                    if (!textIdea.trim()) return;
+                    let improvementCtx: PromptContext = { ...finalContext, improvement_request: textIdea };
+                    const drawUrl = drawGetterRef.current?.();
+                    if (drawUrl) {
+                      try {
+                        const drawCtx = await analyzeDrawing(drawUrl);
+                        improvementCtx = { ...improvementCtx, ...drawCtx };
+                      } catch {}
+                    }                    try {
+                      const fin = await finalPrompt(improvementCtx);
+                      const toSend = sanitizePrompt(fin.prompt || '');
+                      const evt = new CustomEvent('lb:pastePrompt', { detail: { prompt: toSend } });
+                      window.dispatchEvent(evt);
+                      chrome?.storage?.local?.set?.({ lb_pending_prompt: toSend }, () => {});
+                      setPhase('building');
+                      setTextIdea('');
+                    } catch (e) {
+                      setError('Failed to generate improvement prompt');
+                    }
+                  }}
+                >
+                  Apply Improvements
+                </button>
               </div>
             </div>
           </div>
