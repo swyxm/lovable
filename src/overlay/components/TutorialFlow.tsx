@@ -98,7 +98,7 @@ const TutorialFlow: React.FC<TutorialFlowProps> = ({ onClose }) => {
         )}
         {step === 7 && (
           <div className="rounded-xl border border-slate-200 p-5 bg-slate-50 mt-2 text-slate-600 text-sm">
-            use the save button under the canvas to keep versions. your gallery shows thumbnails — click one to open it, or hover to delete.
+            Click any of the saved images above to edit them. You also have the option to delete a drawing.
           </div>
         )}
         

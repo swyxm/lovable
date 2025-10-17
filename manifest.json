@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "LovaBridge",
+  "name": "LovaBuddy",
   "version": "1.0.0",
   "description": "A friendly Chrome extension to help create websites with Lovable",
   "permissions": ["storage", "activeTab", "tabs", "scripting"],
@@ -10,11 +10,23 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "LovaBridge - Start creating!"
+    "default_title": "LovaBuddy - Start creating!",
+    "default_icon": {
+      "16": "avatarimages/icon16.png",
+      "32": "avatarimages/icon16.png",
+      "48": "avatarimages/icon16.png",
+      "128": "avatarimages/icon16.png"
+    }
   },
   "background": {
     "service_worker": "background.js",
     "type": "module"
+  },
+  "icons": {
+    "16": "avatarimages/icon16.png",
+    "32": "avatarimages/icon16.png",
+    "48": "avatarimages/icon16.png",
+    "128": "avatarimages/icon16.png"
   },
   "content_scripts": [
     {
