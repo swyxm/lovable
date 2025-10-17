@@ -445,7 +445,7 @@ const deactivateInteractionBlockers = (overlay?: HTMLElement) => {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'toggleOverlay') {
     const host = location.hostname || '';
-    const isLovable = /(^|\.)lovable\.dev$/i.test(host);
+    const isLovable = /(^|\.)lovable\.(dev|so|site)$/i.test(host);
     if (!isLovable) {
       sendResponse?.({ success: false, error: 'not_lovable' });
       return true;
@@ -471,7 +471,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       const shadow = container.attachShadow({ mode: 'open' });
       const link = document.createElement('link');
       link.rel = 'stylesheet';
-      link.href = chrome.runtime.getURL('styles.css');
+      try {
+        if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getURL === 'function') {
+          link.href = chrome.runtime.getURL('styles.css');
+        } else {
+          link.href = 'styles.css';
+        }
+      } catch {
+        link.href = 'styles.css';
+      }
       shadow.appendChild(link);
 
       try {

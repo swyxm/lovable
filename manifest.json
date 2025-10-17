@@ -33,7 +33,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["content.css", "styles.css"],
+      "resources": ["content.css", "styles.css", "avatarimages/*", "assets/*"],
       "matches": ["<all_urls>"],
       "use_dynamic_url": true
     }
