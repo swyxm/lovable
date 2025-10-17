@@ -146,3 +146,4 @@ export function quickReadinessCheck(): ReadinessResult {
     details: isReady ? 'Website is ready' : 'Website is building'
   };
 }
+

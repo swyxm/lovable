@@ -60,17 +60,23 @@ Current known details (Primary considerations:):
 ${details}
 
 ${drawingImage ? `
-IMPORTANT: The user MAY have provided a drawing/image. However, you must prioritize the text details above over any visual elements. Only if the drawing contains meaningful, non-blank content that adds NEW information not already covered in the text details, then you may consider it. 
+🚨 CRITICAL INSTRUCTION - DRAWING ANALYSIS 🚨
 
-If the drawing appears to be blank, white, or contains minimal/meaningless content, IGNORE it completely and focus solely on the text details provided.
+The user has provided a drawing/image. You MUST follow these rules EXACTLY:
 
-When the drawing IS meaningful and adds value:
-- Suggest color palettes that match or complement what's shown in the drawing
-- Recommend layout patterns that align with the visual structure in the drawing  
-- Consider the overall aesthetic and mood of the drawing when planning questions
-- Use the drawing as visual context to avoid asking redundant questions about things already clear from the image
+1. **BLANK CANVAS DETECTION**: If the drawing appears to be blank, white, empty, or contains no meaningful content, you MUST COMPLETELY IGNORE it. Do NOT reference it, do NOT ask questions about it, do NOT consider it in any way.
 
-CRITICAL: The text details in ${details} are the PRIMARY source of truth. The drawing should only supplement, never override or contradict what's already specified in the text.
+2. **TEXT IS PRIMARY**: The text details above are the ONLY source of truth. The drawing should NEVER override or contradict the text.
+
+3. **DRAWING USAGE RULES**:
+   - ONLY use the drawing if it contains clear, meaningful visual elements
+   - ONLY use it to supplement information NOT already in the text
+   - NEVER ask questions about things already specified in the text
+   - NEVER prioritize visual elements over text descriptions
+
+4. **MANDATORY BEHAVIOR**: If you detect a blank/empty drawing, you MUST proceed as if no drawing was provided at all. Focus 100% on the text details.
+
+**REMEMBER**: Blank canvas = NO drawing consideration whatsoever. Text details are absolute priority.
 ` : ''}
 
 Plan 3-6 questions to fill only the missing attributes from this set: palette, layout, font, tone, main_character, purpose.
@@ -109,3 +115,71 @@ Hard requirements:
 - Prioritize concrete design steps first in this order when missing: palette → layout → font; then include tone/main_character/purpose only as needed to reach 3–6 total distinct steps.
 - Ensure all questions are about different attributes; never ask two questions for the same attribute.
 - Labels should be short and friendly; no emojis for layout/tone/font.`;
+
+export const IMPROVEMENT_SYSTEM_PROMPT = (originalPrompt) => `
+You are analyzing user improvement requests for an existing website that was generated using this original prompt:
+${originalPrompt}
+
+Your task is to create comprehensive, technical improvement prompts for an LLM-based website builder that understands the current state and makes specific, actionable improvements while maintaining consistency with the existing design.
+`;
+
+export const IMPROVEMENT_PROMPT_TEMPLATE = (userImprovement, drawingImage, currentDOM) => `
+${currentDOM ? `
+CURRENT WEBSITE DOM CONTEXT:
+The current state of the website (as of the latest build) is represented by this DOM structure:
+${currentDOM}
+
+Use this DOM context to understand the current layout, components, styling, and structure when making improvements. This ensures your modifications build upon the existing foundation rather than starting from scratch.
+` : ''}
+
+The user now wants to make improvements and has provided this feedback:
+${userImprovement}
+
+${drawingImage ? `
+🚨 CRITICAL INSTRUCTION - DRAWING ANALYSIS 🚨
+
+The user has provided a drawing/image with their improvement request. You MUST follow these rules EXACTLY:
+
+1. **BLANK CANVAS DETECTION**: If the drawing appears to be blank, white, empty, or contains no meaningful content, you MUST COMPLETELY IGNORE it. Do NOT reference it, do NOT consider it, do NOT use it in any way.
+
+2. **TEXT FEEDBACK IS PRIMARY**: The text feedback above is the ONLY source of truth. The drawing should NEVER override or contradict the text feedback.
+
+3. **DRAWING USAGE RULES**:
+   - ONLY use the drawing if it contains clear, meaningful visual elements that show specific changes
+   - ONLY use it to supplement information NOT already in the text feedback
+   - NEVER ask about or reference things already specified in the text
+   - NEVER prioritize visual elements over text descriptions
+
+4. **MANDATORY BEHAVIOR**: If you detect a blank/empty drawing, you MUST proceed as if no drawing was provided at all. Focus 100% on the text feedback and DOM context.
+
+**REMEMBER**: Blank canvas = NO drawing consideration whatsoever. Text feedback + DOM context are absolute priority.
+` : ''}
+
+Your task is to create a comprehensive, technical improvement prompt for the LLM-based website builder that:
+
+1. **Understands the current state** by analyzing the provided DOM context
+2. **Identifies specific areas** that need improvement based on the user's feedback
+3. **Generates actionable instructions** for implementing the improvements
+4. **Maintains consistency** with the existing design while making requested changes
+
+Requirements:
+- Generate a detailed, efficient prompt optimized for AI website modification
+- Focus on SPECIFIC, ACTIONABLE improvements rather than vague suggestions
+- Reference specific DOM elements, classes, and structure when making changes
+- Include technical specifications for layout changes, color updates, component modifications, etc.
+- Specify responsive design requirements and accessibility considerations
+- Use clear, precise language suitable for an AI agent
+- Build upon the existing website structure rather than starting from scratch
+- When referencing existing elements, use their actual class names, IDs, or structure from the DOM
+
+ABSOLUTELY CRITICAL OUTPUT RULES:
+- Output ONLY the improvement prompt text itself
+- Do NOT include ANY preamble, introduction, meta-commentary, or explanatory text
+- Do NOT use phrases like "Here is...", "Based on...", "I'll modify...", "Let me update...", or similar
+- Do NOT include code fences (\`\`\`) around the output
+- Do NOT add any text before or after the actual prompt
+- Start immediately with the improvement instructions (e.g., "Update the website to...", "Modify the existing...", "Change the...")
+- End immediately after the improvement instructions
+- The output should be the raw prompt text that can be directly used in Lovable
+
+Focus on making the user's vision come true while respecting the existing foundation.`;

@@ -110,7 +110,7 @@ async function callLLM(modelPath, body){
   return res.json();
 }
 
-import { SYSTEM_TEMPLATE, FINAL_PROMPT_TEMPLATE, PLAN_QUESTIONS_TEMPLATE } from './prompts.js';
+import { SYSTEM_TEMPLATE, FINAL_PROMPT_TEMPLATE, PLAN_QUESTIONS_TEMPLATE, IMPROVEMENT_SYSTEM_PROMPT, IMPROVEMENT_PROMPT_TEMPLATE } from './prompts.js';
 
 function extractFirstJsonObject(text){
   if(!text) return '';
@@ -150,6 +150,12 @@ app.post('/analyze/describe', async (req, res) => {
 
 app.post('/analyze/drawing', async (req, res) => {
   const { imageDataUrl } = req.body || {};
+  
+  if (isBlankImage(imageDataUrl)) {
+    res.json({ base_idea: null });
+    return;
+  }
+  
   try {
     const prompt = 'Describe this image in a short phrase for a kid-friendly website idea.';
     const data = await callLLM(`/models/${LLM_MODEL}:generateContent`, {
@@ -269,15 +275,43 @@ app.post('/conversation/final', async (req, res) => {
   }
 });
 
+app.post('/conversation/improvement', async (req, res) => {
+  const { originalPrompt, userImprovement, drawingImage, currentDOM } = req.body || {};
+    const validDrawingImage = isBlankImage(drawingImage) ? null : drawingImage;
+  
+  try {
+    const systemPrompt = IMPROVEMENT_SYSTEM_PROMPT(originalPrompt);
+    const userPrompt = IMPROVEMENT_PROMPT_TEMPLATE(userImprovement, validDrawingImage, currentDOM);
+    
+    const data = await callLLM(`/models/${LLM_FINAL_MODEL}:generateContent`, {
+      contents: [
+        { parts: [{ text: systemPrompt }] },
+        { parts: [{ text: userPrompt }] }
+      ]
+    });
+    const out = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+    res.json({ prompt: out });
+  } catch (e){
+    console.error('Relay /conversation/improvement error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+const isBlankImage = (imageData) => {
+};
+
 app.post('/conversation/plan', async (req, res) => {
   const { context, drawingImage } = req.body || {};
   const base = context?.base_idea || 'a fun website';
   const details = JSON.stringify(context, null, 2);
+  
+  const validDrawingImage = isBlankImage(drawingImage) ? null : drawingImage;
+  
   try {
-    const prompt = PLAN_QUESTIONS_TEMPLATE(base, details, drawingImage);
+    const prompt = PLAN_QUESTIONS_TEMPLATE(base, details, validDrawingImage);
     const userParts = [{ text: prompt }];
-    if (drawingImage) {
-      const base64Data = drawingImage.replace(/^data:image\/[a-z]+;base64,/, '');
+    if (validDrawingImage) {
+      const base64Data = validDrawingImage.replace(/^data:image\/[a-z]+;base64,/, '');
       userParts.push({
         inlineData: {
           mimeType: 'image/png',

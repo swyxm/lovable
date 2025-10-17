@@ -6,6 +6,7 @@ import LoadingSpinner from './components/LoadingSpinner';
 import { PromptContext, analyzeDrawing, finalPrompt } from '../ai/llm';
 import { speakText, createAudioButton, stopCurrentAudio } from '../ai/tts';
 import { WebsiteReadinessDetector, quickReadinessCheck } from '../content/websiteReadinessDetector';
+import { extractIframeDOM } from '../content/domUtils';
 
 
 type OverlayAppProps = {
@@ -18,6 +19,21 @@ const sanitizePrompt = (raw: string): string => {
   t = t.replace(/^```[a-zA-Z0-9_-]*\s*\n?/, '');
   t = t.replace(/\n?```\s*$/, '');
   return t.trim();
+};
+
+const generateImprovementPrompt = async (originalPrompt: string, userImprovement: string, drawingImage?: string, currentDOM?: string): Promise<string> => {
+  try {
+    const response = await fetch('http://localhost:8787/conversation/improvement', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ originalPrompt, userImprovement, drawingImage, currentDOM })
+    });
+    const data = await response.json();
+    return data.prompt || '';
+  } catch (error) {
+    console.error('Failed to generate improvement prompt:', error);
+    throw error;
+  }
 };
 
 const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
@@ -36,6 +52,8 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
   const [readinessDetector, setReadinessDetector] = useState<WebsiteReadinessDetector | null>(null);
   const [readinessStatus, setReadinessStatus] = useState<string>('');
   const [manualOverride, setManualOverride] = useState<boolean>(false);
+  const [originalPrompt, setOriginalPrompt] = useState<string>('');
+  const [improvementDetector, setImprovementDetector] = useState<WebsiteReadinessDetector | null>(null);
 
   useEffect(() => { onHeaderReady?.(headerRef.current); }, [onHeaderReady]);
 
@@ -50,6 +68,7 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
     const toSend = sanitizePrompt(finalOut || '');
     if (!toSend.trim()) return;
     try {
+      setOriginalPrompt(toSend); 
       const evt = new CustomEvent('lb:pastePrompt', { detail: { prompt: toSend } });
       window.dispatchEvent(evt);
       chrome?.storage?.local?.set?.({ lb_pending_prompt: toSend }, () => {});
@@ -58,43 +77,77 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
   }, [showFinal, finalOut]);
 
   useEffect(() => {
-    if (phase === 'building' && !readinessDetector && !manualOverride) {
-      setReadinessStatus('Detecting website readiness...');
+    if (phase === 'building' && !readinessDetector && !improvementDetector && !manualOverride) {
+      // Determine if this is initial creation or improvement based on whether we have an original prompt
+      const isImprovement = !!originalPrompt;
+      
+      setReadinessStatus(isImprovement ? 'Applying improvements...' : 'Detecting website readiness...');
       
       const detector = new WebsiteReadinessDetector();
       
-      setReadinessDetector(detector);
+      if (isImprovement) {
+        setImprovementDetector(detector);
+      } else {
+        setReadinessDetector(detector);
+      }
       
       detector.detectReadiness().then((result) => {
-        console.log('🎯 Detection result:', result);
         if (result.isReady) {
-          setReadinessStatus('Website is ready!');
-          setPhase('improvement');
+          if (isImprovement) {
+            setReadinessStatus('Improvements applied!');
+            setPhase('improvement'); // Back to improvement phase for next round
+          } else {
+            setReadinessStatus('Website is ready!');
+            setPhase('improvement');
+          }
         } else {
           setReadinessStatus(`Detection completed: ${result.details || 'Not ready'}`);
         }
-        setReadinessDetector(null);
+        
+        if (isImprovement) {
+          setImprovementDetector(null);
+        } else {
+          setReadinessDetector(null);
+        }
       }).catch((error) => {
         console.error('Readiness detection failed:', error);
         setReadinessStatus('Detection failed');
-        setReadinessDetector(null);
+        
+        if (isImprovement) {
+          setImprovementDetector(null);
+        } else {
+          setReadinessDetector(null);
+        }
       });
     }
     
-    if (phase !== 'building' && readinessDetector) {
-      readinessDetector.stop();
-      setReadinessDetector(null);
+    if (phase !== 'building') {
+      if (readinessDetector) {
+        readinessDetector.stop();
+        setReadinessDetector(null);
+      }
+      if (improvementDetector) {
+        improvementDetector.stop();
+        setImprovementDetector(null);
+      }
       setReadinessStatus('');
     }
-  }, [phase, manualOverride]); 
+    
+    if (phase === 'improvement') {
+      setInputLocked(false);
+    }
+  }, [phase, manualOverride, readinessDetector, improvementDetector]); 
 
   useEffect(() => {
     return () => {
       if (readinessDetector) {
         readinessDetector.stop();
       }
+      if (improvementDetector) {
+        improvementDetector.stop();
+      }
     };
-  }, [readinessDetector]);
+  }, [readinessDetector, improvementDetector]);
 
   const [drawOpen, setDrawOpen] = useState<boolean>(true);
   const drawGetterRef = useRef<(() => string | null) | null>(null);
@@ -199,40 +252,15 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
         {phase === 'building' && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
             <div className="bg-white rounded-2xl p-6 border border-slate-200 max-w-md w-[90%] text-center">
-              <h3 className="text-xl font-bold text-slate-800 mb-4">Great! Your website is now being built!</h3>
+              <h3 className="text-xl font-bold text-slate-800 mb-4">
+                {improvementDetector ? 'Applying Improvements!' : 'Great! Your website is now being built!'}
+              </h3>
               <div className="flex justify-center mb-4">
                 <LoadingSpinner />
               </div>
-              <p className="text-slate-600 mb-4">Please wait while we create your website...</p>
-              
-              {readinessStatus && (
-                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-sm text-blue-800">{readinessStatus}</p>
-                </div>
-              )}
-              
-              <div className="flex gap-2 justify-center">
-                <button 
-                  className="bg-slate-300 hover:bg-slate-400 text-slate-800 px-4 py-2 rounded-xl" 
-                  onClick={() => setPhase('entry')}
-                >
-                  Start Over
-                </button>
-                
-                <button 
-                  className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-xl" 
-                  onClick={() => {
-                    setManualOverride(true);
-                    if (readinessDetector) {
-                      readinessDetector.stop();
-                      setReadinessDetector(null);
-                    }
-                    setPhase('improvement');
-                  }}
-                >
-                  Website is Ready
-                </button>
-              </div>
+              <p className="text-slate-600 mb-4">
+                {improvementDetector ? 'Please wait while I apply your improvements...' : 'Please wait while I create your website...'}
+              </p>
             </div>
           </div>
         )}
@@ -240,30 +268,11 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
         {phase === 'improvement' && finalContext && (
           <div className="mt-4">
             <div className="rounded-xl border border-slate-200 p-5 bg-slate-50">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-bold text-slate-800">Improve Your Website</h3>
-                <button
-                  className="text-sm bg-green-100 hover:bg-green-200 text-green-800 px-3 py-1 rounded-lg"
-                  onClick={() => {
-                    const result = quickReadinessCheck();
-                    if (result.isReady) {
-                      setReadinessStatus(`✅ Website is ready!`);
-                    } else {
-                      setReadinessStatus(`⚠️ Website may not be ready`);
-                    }
-                    setTimeout(() => setReadinessStatus(''), 3000);
-                  }}
-                >
-                  Check Status
-                </button>
+              <div className="flex items-center gap-2 mb-3">
+                <h3 className="text-lg font-bold text-slate-800">Make Improvements</h3>
+                {createAudioButton("Make Improvements", a11y.ttsVoice)}
               </div>
-              <p className="text-slate-600 mb-4">Your website is ready! Now you can make improvements and refinements.</p>
-              
-              {readinessStatus && (
-                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-sm text-green-800">{readinessStatus}</p>
-                </div>
-              )}
+              <p className="text-slate-600 mb-4">Your website is ready! Describe what you'd like to change or improve.</p>
               
               <div className="flex gap-2 mb-4">
                 <input
@@ -271,7 +280,47 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
                   placeholder="Describe improvements you'd like to make..."
                   value={textIdea}
                   onChange={(e) => setTextIdea(e.target.value)}
+                  disabled={inputLocked}
                 />
+                <button
+                  className={`px-6 py-2 rounded-xl ${!textIdea.trim() || inputLocked ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-sky-600 hover:bg-sky-700 text-white'}`}
+                  disabled={!textIdea.trim() || inputLocked}
+                  onClick={async () => {
+                    if (!textIdea.trim() || !originalPrompt) return;
+                    
+                    setInputLocked(true);
+                    setError(null);
+                    
+                    try {
+                      const currentDOM = extractIframeDOM();
+                      
+                      const drawUrl = drawGetterRef.current?.();
+                      
+                      const improvementPrompt = await generateImprovementPrompt(
+                        originalPrompt,
+                        textIdea,
+                        drawUrl || undefined,
+                        currentDOM || undefined
+                      );
+                      
+                      const toSend = sanitizePrompt(improvementPrompt);
+                      
+                      const evt = new CustomEvent('lb:pastePrompt', { detail: { prompt: toSend } });
+                      window.dispatchEvent(evt);
+                      chrome?.storage?.local?.set?.({ lb_pending_prompt: toSend }, () => {});
+                      
+                      setPhase('building');
+                      setTextIdea('');
+                      
+                    } catch (e) {
+                      setError('Failed to generate improvement prompt');
+                    } finally {
+                      setInputLocked(false);
+                    }
+                  }}
+                >
+                  {inputLocked ? 'Applying...' : 'Apply'}
+                </button>
               </div>
 
               <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50">
@@ -284,36 +333,6 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
                     <DrawCanvas exposeGetImage={(g) => { drawGetterRef.current = g; }} />
                   </div>
                 )}
-              </div>
-
-              <div className="text-center mt-4">
-                <button
-                  className={`px-6 py-2 rounded-xl ${!textIdea.trim() ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-sky-600 hover:bg-sky-700 text-white'}`}
-                  disabled={!textIdea.trim()}
-                  onClick={async () => {
-                    if (!textIdea.trim()) return;
-                    let improvementCtx: PromptContext = { ...finalContext, improvement_request: textIdea };
-                    const drawUrl = drawGetterRef.current?.();
-                    if (drawUrl) {
-                      try {
-                        const drawCtx = await analyzeDrawing(drawUrl);
-                        improvementCtx = { ...improvementCtx, ...drawCtx };
-                      } catch {}
-                    }                    try {
-                      const fin = await finalPrompt(improvementCtx);
-                      const toSend = sanitizePrompt(fin.prompt || '');
-                      const evt = new CustomEvent('lb:pastePrompt', { detail: { prompt: toSend } });
-                      window.dispatchEvent(evt);
-                      chrome?.storage?.local?.set?.({ lb_pending_prompt: toSend }, () => {});
-                      setPhase('building');
-                      setTextIdea('');
-                    } catch (e) {
-                      setError('Failed to generate improvement prompt');
-                    }
-                  }}
-                >
-                  Apply Improvements
-                </button>
               </div>
             </div>
           </div>
