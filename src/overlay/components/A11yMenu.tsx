@@ -1,5 +1,5 @@
 import React from 'react';
-import { Accessibility } from 'lucide-react';
+import { Accessibility as LucideAccessibility } from 'lucide-react';
 
 export interface A11yState {
   largeText: boolean;
@@ -15,20 +15,39 @@ interface Props {
 
 export default function A11yMenu({ value, onChange }: Props) {
   const [open, setOpen] = React.useState<boolean>(false);
+  const [msReady, setMsReady] = React.useState<boolean>(false);
+
+  React.useEffect(() => {
+    const id = 'material-symbols-outlined-link';
+    if (!document.getElementById(id)) {
+      const link = document.createElement('link');
+      link.id = id;
+      link.rel = 'stylesheet';
+      link.href = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=accessibility';
+      document.head.appendChild(link);
+    }
+    try {
+      (document as any).fonts?.load?.('24px "Material Symbols Outlined"').then(() => setMsReady(true)).catch(() => setMsReady(false));
+    } catch {
+      setMsReady(false);
+    }
+  }, []);
+
   const toggle = (key: keyof A11yState) => onChange({ ...value, [key]: !value[key] });
   return (
     <div className="relative">
       <button
         aria-label="Accessibility settings"
         className="relative inline-flex items-center justify-center w-10 h-10 rounded-full bg-sky-100 text-sky-700 hover:bg-sky-200 transition-transform duration-300 shadow"
-        onClick={(e) => {
-          const el = e.currentTarget;
-          el.classList.add('animate-spin');
-          setTimeout(() => el.classList.remove('animate-spin'), 600);
+        onClick={() => {
           setOpen((v: boolean) => !v);
         }}
       >
-        <Accessibility size={18} />
+        {msReady ? (
+          <span className="material-symbols-outlined" style={{ fontVariationSettings: `'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24`, lineHeight: 0 }}>accessibility</span>
+        ) : (
+          <LucideAccessibility size={18} />
+        )}
       </button>
       <div
         className={`absolute left-12 top-1/2 -translate-y-1/2 flex items-center gap-1 flex-nowrap whitespace-nowrap overflow-hidden transition-all duration-300 ${open ? 'opacity-100 translate-x-0 max-w-[520px]' : 'opacity-0 -translate-x-2 max-w-0'}`}
