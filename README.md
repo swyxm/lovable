@@ -1,4 +1,4 @@
-# LovaBuddy
+# LovaBuddy - Swayam Parekh & Edward Zhao 
 
 > LovaBuddy is an educational Chrome extension that helps young learners, especially those with diverse needs, transform sketches and ideas into accessible, high‑quality websites.
 
