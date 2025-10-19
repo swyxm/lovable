@@ -120,8 +120,8 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
 
   useEffect(() => {
     if (phase === 'building' && !readinessDetector && !improvementDetector && !manualOverride) {
-      const isImprovement = !!originalPrompt; // if we already sent a prompt, next builds are improvements
-      setReadinessStatus(isImprovement ? 'Applying improvements...' : 'Detecting website readiness...');
+      const isImprovement = !!originalPrompt; 
+      setReadinessStatus(isImprovement ? '' : 'Detecting website readiness...');
       const detector = new WebsiteReadinessDetector();
       if (isImprovement) {
         setImprovementDetector(detector);
@@ -287,7 +287,7 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
             <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
               <div className="bg-white rounded-2xl p-6 border border-slate-200 max-w-md w-[90%] text-center">
                 <h3 className="text-xl font-bold text-slate-800 mb-4">
-                  {improvementDetector ? 'Applying Improvements!' : 'Great! Your website is now being built!'}
+                  {improvementDetector ? '' : 'Great! Your website is now being built!'}
                 </h3>
                 <div className="flex justify-center mb-2">
                   <AnimCycle messages={improvementDetector ? [
@@ -305,7 +305,7 @@ const OverlayApp: React.FC<OverlayAppProps> = ({ onClose, onHeaderReady }) => {
                   ]} />
                 </div>
                 <p className="text-slate-600">
-                  {improvementDetector ? 'Please wait while I apply your improvements...' : 'Please wait while I create your website...'}
+                  {improvementDetector ? '' : 'Please wait while I create your website...'}
                 </p>
                 {readinessStatus && <p className="text-slate-500 text-sm mt-2">{readinessStatus}</p>}
               </div>
