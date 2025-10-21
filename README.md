@@ -1,4 +1,4 @@
-# LovaBridge
+# LovaBuddy
 
 A Chrome extension that provides an interactive accessibility layer designed to help children with special needs use the Lovable website builder. The extension appears as a popup overlay on top of the Lovable interface and guides users through expressing creative ideas and refining them into structured prompts.
 
@@ -57,7 +57,7 @@ src/
 
 ## Usage
 
-1. Click the LovaBridge icon in the Chrome toolbar
+1. Click the LovaBuddy icon in the Chrome toolbar
 2. Click "Open overlay on page" to launch the main interface
 3. Choose between "Draw" or "Describe" modes:
    - **Draw**: Use the drawing canvas to sketch your idea
